@@ -109,6 +109,57 @@
     </div>
 
     <script>
+
+<!-- Add this script BEFORE your existing JavaScript -->
+<script>
+    // Simple user management using localStorage
+    function getCurrentUser() {
+        return localStorage.getItem('currentUser');
+    }
+    
+    function getUserData(username) {
+        const users = JSON.parse(localStorage.getItem('tws_users')) || {};
+        return users[username] || null;
+    }
+    
+    function updateUserData(username, data) {
+        const users = JSON.parse(localStorage.getItem('tws_users')) || {};
+        if (users[username]) {
+            users[username] = { ...users[username], ...data };
+            localStorage.setItem('tws_users', JSON.stringify(users));
+        }
+    }
+    
+    function addGameHistory(gameData) {
+        const history = JSON.parse(localStorage.getItem('game_history')) || [];
+        history.push({
+            ...gameData,
+            date: new Date().toISOString(),
+            id: Date.now()
+        });
+        localStorage.setItem('game_history', JSON.stringify(history.slice(-100))); // Keep last 100 games
+    }
+    
+    // Check login on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const user = getCurrentUser();
+        if (!user) {
+            window.location.href = 'login.html';
+        } else {
+            // Update UI with user info
+            const userData = getUserData(user);
+            if (userData) {
+                document.getElementById('userName').textContent = user;
+                document.getElementById('userBalance').textContent = '$' + userData.balance;
+            }
+        }
+    });
+    
+    function logout() {
+        localStorage.removeItem('currentUser');
+        window.location.href = 'login.html';
+    }
+        
         function playGame(gameType) {
             alert(`Starting ${gameType} game! (This will be implemented later)`);
             // Will redirect to game pages later
