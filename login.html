@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - TWS Gambling</title>
+    <style>
+        body { background: #121212; color: white; font-family: Arial; text-align: center; padding: 50px; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 10px; display: inline-block; }
+        input { padding: 10px; margin: 10px; width: 200px; }
+        button { background: #4CAF50; color: white; border: none; padding: 12px 30px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>🎲 TWS Gambling Login</h2>
+        <input id="username" placeholder="Username"><br>
+        <input id="password" type="password" placeholder="PIN (4 digits)"><br>
+        <button onclick="login()">Login</button>
+        <button onclick="register()" style="background: #666;">Register</button>
+        <p id="message" style="color: red;"></p>
+    </div>
+
+    <script>
+        // Simple local storage login (NO database needed yet!)
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Check if user exists in localStorage
+            const users = JSON.parse(localStorage.getItem('tws_users')) || {};
+            
+            if (users[username] && users[username].password === password) {
+                localStorage.setItem('currentUser', username);
+                window.location.href = 'index.html';
+            } else {
+                document.getElementById('message').textContent = 'Wrong username or PIN!';
+            }
+        }
+        
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                document.getElementById('message').textContent = 'Enter username and PIN!';
+                return;
+            }
+            
+            // Save to localStorage
+            const users = JSON.parse(localStorage.getItem('tws_users')) || {};
+            
+            if (users[username]) {
+                document.getElementById('message').textContent = 'Username taken!';
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                balance: 1000,
+                items: [],
+                created: new Date().toISOString()
+            };
+            
+            localStorage.setItem('tws_users', JSON.stringify(users));
+            localStorage.setItem('currentUser', username);
+            
+            document.getElementById('message').textContent = 'Account created! Logging in...';
+            setTimeout(() => window.location.href = 'index.html', 1000);
+        }
+        
+        // Auto-login if already logged in
+        if (localStorage.getItem('currentUser')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
