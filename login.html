@@ -1,75 +1,85 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Login - TWS Gambling</title>
+    <title>My Profile</title>
     <style>
-        body { background: #121212; color: white; font-family: Arial; text-align: center; padding: 50px; }
-        .login-box { background: #1e1e1e; padding: 40px; border-radius: 10px; display: inline-block; }
-        input { padding: 10px; margin: 10px; width: 200px; }
-        button { background: #4CAF50; color: white; border: none; padding: 12px 30px; cursor: pointer; }
+        body { background: #121212; color: white; font-family: Arial; padding: 20px; }
+        .card { background: #1e1e1e; padding: 20px; margin: 10px; border-radius: 10px; }
+        button { background: #4CAF50; color: white; border: none; padding: 10px; margin: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <h2>🎲 TWS Gambling Login</h2>
-        <input id="username" placeholder="Username"><br>
-        <input id="password" type="password" placeholder="PIN (4 digits)"><br>
-        <button onclick="login()">Login</button>
-        <button onclick="register()" style="background: #666;">Register</button>
-        <p id="message" style="color: red;"></p>
+    <a href="index.html">← Back</a>
+    <h1>👤 My Profile</h1>
+    
+    <div class="card">
+        <h3>💰 Balance: <span id="balance">$1000</span></h3>
+        <button onclick="addMoney(100)">+$100</button>
+        <button onclick="addMoney(500)">+$500</button>
     </div>
+    
+    <div class="card">
+        <h3>🎒 My Items</h3>
+        <div id="items">Loading...</div>
+        <button onclick="addItem('Metal', 10)">Add 10 Metal</button>
+        <button onclick="addItem('Wood', 20)">Add 20 Wood</button>
+    </div>
+    
+    <div class="card">
+        <h3>📜 Game History</h3>
+        <div id="history">No games yet</div>
+    </div>
+    
+    <button onclick="logout()" style="background: red;">Logout</button>
 
     <script>
-        // Simple local storage login (NO database needed yet!)
-        function login() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            // Check if user exists in localStorage
-            const users = JSON.parse(localStorage.getItem('tws_users')) || {};
-            
-            if (users[username] && users[username].password === password) {
-                localStorage.setItem('currentUser', username);
-                window.location.href = 'index.html';
-            } else {
-                document.getElementById('message').textContent = 'Wrong username or PIN!';
-            }
-        }
+        // Get current user
+        const username = localStorage.getItem('currentUser');
+        if (!username) window.location.href = 'login.html';
         
-        function register() {
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            
-            if (!username || !password) {
-                document.getElementById('message').textContent = 'Enter username and PIN!';
-                return;
-            }
-            
-            // Save to localStorage
-            const users = JSON.parse(localStorage.getItem('tws_users')) || {};
-            
-            if (users[username]) {
-                document.getElementById('message').textContent = 'Username taken!';
-                return;
-            }
-            
-            users[username] = {
-                password: password,
-                balance: 1000,
-                items: [],
-                created: new Date().toISOString()
-            };
-            
+        // Load user data
+        const users = JSON.parse(localStorage.getItem('tws_users')) || {};
+        const userData = users[username] || { balance: 1000, items: [] };
+        
+        // Update display
+        document.getElementById('balance').textContent = '$' + userData.balance;
+        document.getElementById('items').innerHTML = userData.items.map(item => 
+            `<div>${item.name}: ${item.quantity}</div>`
+        ).join('') || 'No items';
+        
+        // Load game history
+        const history = JSON.parse(localStorage.getItem('game_history')) || [];
+        const myGames = history.filter(g => g.player1 === username || g.player2 === username);
+        document.getElementById('history').innerHTML = myGames.map(game => 
+            `<div>${game.date}: ${game.game} vs ${game.player2} - ${game.result}</div>`
+        ).join('') || 'No games yet';
+        
+        // Functions
+        function addMoney(amount) {
+            userData.balance += amount;
+            users[username] = userData;
             localStorage.setItem('tws_users', JSON.stringify(users));
-            localStorage.setItem('currentUser', username);
-            
-            document.getElementById('message').textContent = 'Account created! Logging in...';
-            setTimeout(() => window.location.href = 'index.html', 1000);
+            document.getElementById('balance').textContent = '$' + userData.balance;
         }
         
-        // Auto-login if already logged in
-        if (localStorage.getItem('currentUser')) {
-            window.location.href = 'index.html';
+        function addItem(name, quantity) {
+            if (!userData.items) userData.items = [];
+            const item = userData.items.find(i => i.name === name);
+            if (item) {
+                item.quantity += quantity;
+            } else {
+                userData.items.push({ name, quantity });
+            }
+            users[username] = userData;
+            localStorage.setItem('tws_users', JSON.stringify(users));
+            document.getElementById('items').innerHTML = userData.items.map(item => 
+                `<div>${item.name}: ${item.quantity}</div>`
+            ).join('');
+        }
+        
+        function logout() {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'login.html';
         }
     </script>
 </body>
