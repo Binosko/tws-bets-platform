@@ -90,8 +90,105 @@ app.get('*', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
   
-  // Player registration
+  // Immediately send connection success
+  socket.emit('connected', { socketId: socket.id, message: 'Connected to TWS Lotto' });
+  
+  // Send initial data
+  socket.emit('players-online', { count: players.size });
+  
+  // Player registration - SIMPLIFIED VERSION
   socket.on('register', (playerData) => {
+    console.log('Registration attempt:', playerData.username);
+    
+    // Check if display name already exists
+    const existingPlayer = Array.from(players.values()).find(
+      p => p.displayName && playerData.displayName && 
+      p.displayName.toLowerCase() === playerData.displayName.toLowerCase()
+    );
+    
+    if (existingPlayer) {
+      socket.emit('error', { 
+        message: `Display name "${playerData.displayName}" already exists.` 
+      });
+      return;
+    }
+    
+    // Create simple player object
+    const player = {
+      id: socket.id,
+      socketId: socket.id,
+      username: playerData.username || 'player_' + Date.now(),
+      displayName: playerData.displayName || playerData.username,
+      balance: 1000, // Starting balance
+      avatar: '🎮',
+      joined: new Date().toISOString(),
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalWinnings: 0,
+      totalLosses: 0,
+      netWinnings: 0
+    };
+    
+    players.set(socket.id, player);
+    playerTickets.set(socket.id, { total: 0, perTier: {1: 0, 2: 0, 3: 0, 4: 0} });
+    
+    console.log('Player registered:', player.displayName);
+    
+    // Send success response - MATCH WHAT FRONTEND EXPECTS
+    socket.emit('registered', {
+      success: true,
+      player: {
+        id: player.id,
+        displayName: player.displayName,
+        balance: player.balance,
+        gamesPlayed: player.gamesPlayed,
+        netWinnings: player.netWinnings,
+        avatar: player.avatar
+      }
+    });
+    
+    // Update player count
+    io.emit('players-online', { count: players.size });
+    
+    // Send initial tier data
+    sendTierUpdates();
+  });
+  
+  // Add this handler for ticket purchases
+  socket.on('buy-tickets', (data) => {
+    console.log('Buy tickets:', data);
+    const player = players.get(socket.id);
+    
+    if (!player) {
+      socket.emit('error', { message: 'Please register first' });
+      return;
+    }
+    
+    // Simple mock response for testing
+    socket.emit('ticket-purchased', {
+      tier: data.tier,
+      ticketId: 1,
+      playerName: player.displayName
+    });
+    
+    socket.emit('balance-updated', { balance: player.balance - 50 });
+  });
+  
+  // Add this handler for tier info requests
+  socket.on('get-tier-info', (data) => {
+    const tier = data.tier || 1;
+    const tierData = {
+      tier: tier,
+      price: LOTTO_CONFIG.tiers[tier].price,
+      sold: 0,
+      available: 100,
+      uniquePlayers: 0,
+      status: 'waiting',
+      pot: 0
+    };
+    
+    socket.emit('tier-info', tierData);
+  });
     // Check if display name already exists
     const existingPlayer = Array.from(players.values()).find(
       p => p.displayName.toLowerCase() === playerData.displayName.toLowerCase()
