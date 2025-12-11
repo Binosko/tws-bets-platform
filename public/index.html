@@ -777,7 +777,7 @@
                 // Create new user
                 this.users[username] = {
                     username: username,
-                    password: password, // In real app, hash this!
+                    password: password,
                     displayName: displayName,
                     balance: 1000,
                     gamesPlayed: 0,
@@ -839,7 +839,7 @@
                     this.showLoginModal();
                 }
                 
-                // Remove the "Connecting..." status since we don't need server
+                // Update status
                 document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Ready';
                 document.getElementById('onlineCount').textContent = '0';
             },
@@ -1031,31 +1031,6 @@
                     this.showAlert(result.message, 'error');
                 }
             },
-			
-        // Switch between register/login forms
-        function showForm(formType) {
-            const registerForm = document.getElementById('registerForm');
-            const loginForm = document.getElementById('loginForm');
-            const registerBtn = document.getElementById('showRegister');
-            const loginBtn = document.getElementById('showLogin');
-            
-            if (formType === 'register') {
-                registerForm.style.display = 'block';
-                loginForm.style.display = 'none';
-                registerBtn.classList.add('btn-gold');
-                registerBtn.classList.remove('btn-primary');
-                loginBtn.classList.add('btn-primary');
-                loginBtn.classList.remove('btn-gold');
-            } else {
-                registerForm.style.display = 'none';
-                loginForm.style.display = 'block';
-                loginBtn.classList.add('btn-gold');
-                loginBtn.classList.remove('btn-primary');
-                registerBtn.classList.add('btn-primary');
-                registerBtn.classList.remove('btn-gold');
-            }
-        }
-			
             
             // Update user controls in header
             updateUserControls() {
@@ -1126,6 +1101,8 @@
                     document.getElementById('username').value = '';
                     document.getElementById('password').value = '';
                     document.getElementById('displayName').value = '';
+                    document.getElementById('loginUsername').value = '';
+                    document.getElementById('loginPassword').value = '';
                 }
             },
             
@@ -1185,6 +1162,30 @@
                 this.showLoginModal();
             }
         };
+        
+        // Switch between register/login forms
+        function showForm(formType) {
+            const registerForm = document.getElementById('registerForm');
+            const loginForm = document.getElementById('loginForm');
+            const registerBtn = document.getElementById('showRegister');
+            const loginBtn = document.getElementById('showLogin');
+            
+            if (formType === 'register') {
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+                registerBtn.classList.add('btn-gold');
+                registerBtn.classList.remove('btn-primary');
+                loginBtn.classList.add('btn-primary');
+                loginBtn.classList.remove('btn-gold');
+            } else {
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+                loginBtn.classList.add('btn-gold');
+                loginBtn.classList.remove('btn-primary');
+                registerBtn.classList.add('btn-primary');
+                registerBtn.classList.remove('btn-gold');
+            }
+        }
         
         // Global functions for HTML onclick
         function changeQuantity(delta) {
