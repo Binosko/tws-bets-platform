@@ -717,20 +717,20 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>TWS Lotto &copy; 2023 | For That War Server Community | <span id="connectionStatus"><i class="fas fa-circle"></i> Connecting...</span></p>
+        <p>TWS Lotto &copy; 2023 | That War Server Community | <span id="connectionStatus"><i class="fas fa-circle"></i> Connecting...</span></p>
     </footer>
 
     <!-- Socket.io & App Script -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     
-    <!-- App JavaScript will be added here -->
+    <!-- App JavaScript -->
     <script>
         // Main Application
         const TWSApp = {
             socket: null,
             currentUser: null,
             currentTier: 1,
-            ticketsPerTier: [0, 0, 0, 0], // Track tickets per tier (index 0 unused)
+            ticketsPerTier: [0, 0, 0, 0],
             totalTickets: 0,
             maxTicketsPerPlayer: 50,
             
@@ -751,62 +751,30 @@
                 }
             },
             
-            // Connect to server
+            // Connect to server - FIXED FOR VERCEL
             connectSocket() {
-                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const host = window.location.host;
-                const socketUrl = `${protocol}//${host}`;
+                // Use polling first for Vercel compatibility
+                const socketUrl = window.location.origin;
+                
+                console.log('Connecting to:', socketUrl);
                 
                 this.socket = io(socketUrl, {
-                    transports: ['websocket', 'polling'],
-                    reconnection: true
+                    transports: ['polling', 'websocket'], // POLLING FIRST
+                    reconnection: true,
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 1000,
+                    timeout: 20000
                 });
-
-// Add timeout to prevent hanging
-const connectionTimeout = setTimeout(() => {
-  if (!this.socket.connected) {
-    this.showAlert('Server connection timeout. Please refresh.', 'error');
-    console.error('Connection timeout');
-  }
-}, 5000);
-
-// Socket events - ADD THIS NEW EVENT HANDLER FIRST
-this.socket.on('connect', () => {
-  clearTimeout(connectionTimeout);
-  console.log('Connected to TWS Lotto server');
-  this.updateConnectionStatus(true);
-  
-  if (this.currentUser) {
-    this.socket.emit('register', {
-      ...this.currentUser,
-      socketId: this.socket.id
-    });
-  }
-});
-
-// ADD THIS SIMPLE CONNECTION EVENT
-this.socket.on('connected', (data) => {
-  console.log('Server connection confirmed:', data.message);
-  this.showAlert('Connected to server!', 'success');
-});
-
-// Test connection immediately
-this.socket.on('connect_error', (error) => {
-  console.error('Connection error:', error);
-  this.showAlert(`Connection failed: ${error.message}. Trying polling...`, 'error');
-  
-  // Try fallback
-  this.socket.io.opts.transports = ['polling', 'websocket'];
-});
-
-this.socket.on('connect_timeout', () => {
-  console.error('Connection timeout');
-  this.showAlert('Server timeout. Please refresh.', 'error');
-});
                 
-                // Socket events
+                // Debug: log all events
+                this.socket.onAny((event, ...args) => {
+                    console.log('📡 Socket event:', event, args);
+                });
+                
+                // Connection established
                 this.socket.on('connect', () => {
-                    console.log('Connected to TWS Lotto server');
+                    console.log('✅ SOCKET CONNECTED via', this.socket.io.engine.transport.name);
+                    this.showAlert('Connected to server!', 'success');
                     this.updateConnectionStatus(true);
                     
                     if (this.currentUser) {
@@ -817,43 +785,81 @@ this.socket.on('connect_timeout', () => {
                     }
                 });
                 
+                // Server confirms connection
+                this.socket.on('connected', (data) => {
+                    console.log('Server handshake:', data.message);
+                });
+                
+                // Registration success
                 this.socket.on('registered', (data) => {
+                    console.log('✅ REGISTERED:', data);
                     if (data.success) {
-                        this.currentUser = { ...this.currentUser, ...data.player };
-                        localStorage.setItem('tws_lotto_user', JSON.stringify(this.currentUser));
+                        this.currentUser = data.player;
+                        localStorage.setItem('tws_lotto_user', JSON.stringify(data.player));
                         this.updateUserControls();
-                        this.updateTierInfo();
                         this.hideLoginModal();
+                        this.showAlert('Welcome ' + data.player.displayName + '!', 'success');
+                        
+                        // Request initial data
+                        this.socket.emit('get-tier-info', { tier: this.currentTier });
                     }
                 });
                 
-                this.socket.on('tier-update', (data) => {
-                    this.updateTierDisplay(data);
-                });
-                
-                this.socket.on('ticket-purchased', (data) => {
-                    this.updateTicketOnBoard(data.ticketId, data.playerName);
-                });
-                
-                this.socket.on('game-started', (data) => {
-                    this.showGameStarted(data);
-                });
-                
-                this.socket.on('game-finished', (data) => {
-                    this.showGameResult(data);
-                });
-                
+                // Player count updates
                 this.socket.on('players-online', (data) => {
                     document.getElementById('onlineCount').textContent = data.count;
                 });
                 
+                // Tier info
+                this.socket.on('tier-info', (data) => {
+                    console.log('Tier info:', data);
+                    this.updateTierDisplay(data);
+                });
+                
+                // Ticket purchased
+                this.socket.on('ticket-purchased', (data) => {
+                    this.showAlert(`${data.playerName} bought ticket ${data.ticketId}`, 'info');
+                });
+                
+                // Balance updated
+                this.socket.on('balance-updated', (data) => {
+                    if (this.currentUser) {
+                        this.currentUser.balance = data.balance;
+                        this.updateUserControls();
+                    }
+                });
+                
+                // Errors
                 this.socket.on('error', (data) => {
-                    this.showAlert(data.message, 'error');
+                    console.error('Socket error:', data);
+                    this.showAlert(data.message || 'Error occurred', 'error');
+                });
+                
+                // Connection issues
+                this.socket.on('connect_error', (error) => {
+                    console.error('Connection error:', error);
+                    this.showAlert('Connecting via polling...', 'warning');
                 });
                 
                 this.socket.on('disconnect', () => {
+                    console.log('Disconnected');
                     this.updateConnectionStatus(false);
                 });
+            },
+            
+            // Update tier display with data
+            updateTierDisplay(data) {
+                if (!data) return;
+                
+                document.getElementById('ticketsSold').textContent = data.sold;
+                document.getElementById('yourTickets').textContent = '0';
+                document.getElementById('uniquePlayers').textContent = data.uniquePlayers;
+                document.getElementById('currentPot').textContent = data.pot;
+                
+                // Update status
+                const statusEl = document.getElementById('gameStatus');
+                statusEl.textContent = data.status === 'active' ? 'Game Active' : 'Waiting for players (2+ needed)';
+                statusEl.className = `status-badge ${data.status === 'active' ? 'status-active' : 'status-waiting'}`;
             },
             
             // Setup event listeners
@@ -865,7 +871,11 @@ this.socket.on('connect_timeout', () => {
                         e.target.classList.add('active');
                         this.currentTier = parseInt(e.target.dataset.tier);
                         this.updateTierInfo();
-                        this.updateTicketBoard();
+                        
+                        // Request tier data from server
+                        if (this.socket && this.socket.connected) {
+                            this.socket.emit('get-tier-info', { tier: this.currentTier });
+                        }
                     });
                 });
                 
@@ -893,7 +903,6 @@ this.socket.on('connect_timeout', () => {
             
             // Update ticket board display
             updateTicketBoard() {
-                // This will be populated with server data
                 console.log(`Updating board for tier ${this.currentTier}`);
             },
             
@@ -909,7 +918,6 @@ this.socket.on('connect_timeout', () => {
                     return;
                 }
                 
-                // In real app, this would send to server
                 this.showAlert(`Ticket ${ticketId} selected - use Buy button to purchase`, 'info');
             },
             
@@ -938,24 +946,13 @@ this.socket.on('connect_timeout', () => {
                 if (this.socket && this.socket.connected) {
                     this.socket.emit('buy-tickets', {
                         tier: this.currentTier,
-                        quantity: quantity,
-                        ticketIds: this.getRandomTicketIds(quantity) // In real app, user selects
+                        quantity: quantity
                     });
                     
                     this.showAlert(`Buying ${quantity} ticket(s) for $${totalCost}...`, 'info');
                 } else {
                     this.showAlert('Connecting to server...', 'warning');
                 }
-            },
-            
-            // Get random ticket IDs (for demo)
-            getRandomTicketIds(count) {
-                const ids = [];
-                while (ids.length < count) {
-                    const id = Math.floor(Math.random() * 100) + 1;
-                    if (!ids.includes(id)) ids.push(id);
-                }
-                return ids;
             },
             
             // Get tier price
@@ -989,48 +986,192 @@ this.socket.on('connect_timeout', () => {
             },
             
             // Register user
-// Register user
-register() {
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  const displayName = document.getElementById('displayName').value.trim();
-  
-  if (!username || !displayName) {
-    this.showAlert('Please fill in username and display name', 'warning');
-    return;
-  }
-  
-  // Show loading
-  this.showAlert('Registering...', 'info');
-  
-  // Check socket connection
-  if (!this.socket || !this.socket.connected) {
-    this.showAlert('Not connected to server. Please wait...', 'warning');
-    
-    // Try to reconnect
-    this.connectSocket();
-    setTimeout(() => this.register(), 2000);
-    return;
-  }
-  
-  console.log('Sending registration:', { username, displayName });
-  
-  // Send simplified registration data
-  this.socket.emit('register', {
-    username: username,
-    displayName: displayName,
-    // Don't send password for now - we'll add auth later
-    avatar: '🎮'
-  });
-  
-  // Add timeout
-  setTimeout(() => {
-    if (!this.currentUser) {
-      this.showAlert('Registration timeout. Try again.', 'warning');
-    }
-  }, 5000);
-},
-
-	</script>
+            register() {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const displayName = document.getElementById('displayName').value.trim();
+                
+                if (!username || !displayName) {
+                    this.showAlert('Please fill in username and display name', 'warning');
+                    return;
+                }
+                
+                // Show loading
+                this.showAlert('Registering...', 'info');
+                
+                // Check socket connection
+                if (!this.socket || !this.socket.connected) {
+                    this.showAlert('Not connected to server. Please wait...', 'warning');
+                    setTimeout(() => this.register(), 1000);
+                    return;
+                }
+                
+                console.log('Sending registration:', { username, displayName });
+                
+                // Send registration data
+                this.socket.emit('register', {
+                    username: username,
+                    displayName: displayName,
+                    avatar: '🎮'
+                });
+                
+                // Add timeout
+                setTimeout(() => {
+                    if (!this.currentUser) {
+                        this.showAlert('Registration timeout. Try again.', 'warning');
+                    }
+                }, 5000);
+            },
+            
+            // Update user controls in header
+            updateUserControls() {
+                const userControls = document.getElementById('userControls');
+                
+                if (this.currentUser) {
+                    userControls.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="text-align: right;">
+                                <div style="color: var(--gold); font-weight: bold; font-size: 1.1rem;">
+                                    <i class="fas fa-user"></i> ${this.currentUser.displayName}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+                                    <i class="fas fa-coins"></i> $${this.currentUser.balance.toLocaleString()} | 
+                                    Tickets: ${this.totalTickets}/50
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="TWSApp.logout()" style="padding: 0.5rem 1rem;">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Update user stats in sidebar
+                    this.updateUserStats();
+                } else {
+                    userControls.innerHTML = `
+                        <button class="btn btn-gold" onclick="TWSApp.showLoginModal()">
+                            <i class="fas fa-sign-in-alt"></i> Login / Register
+                        </button>
+                    `;
+                }
+            },
+            
+            // Update user stats in sidebar
+            updateUserStats() {
+                const userStats = document.getElementById('userStats');
+                if (!this.currentUser) return;
+                
+                userStats.innerHTML = `
+                    <div class="stat-box">
+                        <div class="stat-label">Balance</div>
+                        <div class="stat-value">$${this.currentUser.balance}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Total Tickets</div>
+                        <div class="stat-value">${this.totalTickets}/50</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Games Played</div>
+                        <div class="stat-value">${this.currentUser.gamesPlayed || 0}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Net Winnings</div>
+                        <div class="stat-value ${(this.currentUser.netWinnings || 0) >= 0 ? 'text-success' : 'text-danger'}">
+                            $${this.currentUser.netWinnings || 0}
+                        </div>
+                    </div>
+                `;
+            },
+            
+            // Show/hide login modal
+            showLoginModal() {
+                document.getElementById('loginModal').style.display = 'flex';
+            },
+            
+            hideLoginModal() {
+                document.getElementById('loginModal').style.display = 'none';
+            },
+            
+            // Show alert
+            showAlert(message, type = 'info') {
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 1rem 1.5rem;
+                    background: ${type === 'error' ? 'var(--danger)' : type === 'warning' ? 'var(--warning)' : 'var(--gold)'};
+                    color: ${type === 'warning' ? 'black' : 'white'};
+                    border-radius: 8px;
+                    z-index: 10000;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
+                `;
+                alert.textContent = message;
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
+            },
+            
+            // Update connection status
+            updateConnectionStatus(connected) {
+                const status = document.getElementById('connectionStatus');
+                if (status) {
+                    status.innerHTML = connected 
+                        ? '<i class="fas fa-circle text-success"></i> Connected'
+                        : '<i class="fas fa-circle text-danger"></i> Disconnected';
+                }
+            },
+            
+            // Change ticket quantity
+            changeQuantity(delta) {
+                const input = document.getElementById('ticketQuantity');
+                let value = parseInt(input.value) + delta;
+                value = Math.max(1, Math.min(10, value));
+                input.value = value;
+                this.updateTotalPrice();
+            },
+            
+            // Buy max tickets (5)
+            buyMaxTickets() {
+                document.getElementById('ticketQuantity').value = 5;
+                this.updateTotalPrice();
+                this.buyTickets();
+            },
+            
+            // Logout
+            logout() {
+                this.currentUser = null;
+                localStorage.removeItem('tws_lotto_user');
+                this.updateUserControls();
+                this.showLoginModal();
+            }
+        };
+        
+        // Global functions for HTML onclick
+        function changeQuantity(delta) {
+            TWSApp.changeQuantity(delta);
+        }
+        
+        function buyTickets() {
+            TWSApp.buyTickets();
+        }
+        
+        function buyMaxTickets() {
+            TWSApp.buyMaxTickets();
+        }
+        
+        function register() {
+            TWSApp.register();
+        }
+        
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            TWSApp.init();
+        });
+    </script>
 </body>
 </html>
