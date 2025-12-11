@@ -686,32 +686,60 @@
         <div class="modal-content">
             <h3 class="card-title text-center"><i class="fas fa-user-plus"></i> Join TWS Lotto</h3>
             
-            <div class="input-group">
-                <label class="input-label">Username</label>
-                <input type="text" id="username" class="input-field" placeholder="Choose a username" maxlength="20">
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <button id="showRegister" class="btn btn-gold" style="flex: 1;" onclick="showForm('register')">Register</button>
+                <button id="showLogin" class="btn btn-primary" style="flex: 1;" onclick="showForm('login')">Login</button>
             </div>
             
-            <div class="input-group">
-                <label class="input-label">Password</label>
-                <input type="password" id="password" class="input-field" placeholder="Create a password">
+            <!-- Register Form -->
+            <div id="registerForm">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="username" class="input-field" placeholder="Choose a username" maxlength="20">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="password" class="input-field" placeholder="Create a password">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">In-Game Display Name</label>
+                    <input type="text" id="displayName" class="input-field" placeholder="e.g., That_Rebel_Spy" maxlength="30">
+                    <small style="color: rgba(255,255,255,0.6); margin-top: 0.25rem; display: block;">
+                        This must match your in-game name exactly
+                    </small>
+                </div>
+                
+                <div class="text-center mt-2">
+                    <button class="btn btn-gold" onclick="register()" style="padding: 1rem 3rem; font-size: 1.2rem;">
+                        <i class="fas fa-rocket"></i> CREATE ACCOUNT
+                    </button>
+                </div>
             </div>
             
-            <div class="input-group">
-                <label class="input-label">In-Game Display Name</label>
-                <input type="text" id="displayName" class="input-field" placeholder="e.g., That_Rebel_Spy" maxlength="30">
-                <small style="color: rgba(255,255,255,0.6); margin-top: 0.25rem; display: block;">
-                    This must match your in-game name exactly
-                </small>
+            <!-- Login Form (initially hidden) -->
+            <div id="loginForm" style="display: none;">
+                <div class="input-group">
+                    <label class="input-label">Username</label>
+                    <input type="text" id="loginUsername" class="input-field" placeholder="Enter your username">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Password</label>
+                    <input type="password" id="loginPassword" class="input-field" placeholder="Enter your password">
+                </div>
+                
+                <div class="text-center mt-2">
+                    <button class="btn btn-primary" onclick="login()" style="padding: 1rem 3rem; font-size: 1.2rem;">
+                        <i class="fas fa-sign-in-alt"></i> LOGIN
+                    </button>
+                </div>
             </div>
             
-            <div class="text-center mt-2">
-                <button class="btn btn-gold" onclick="register()" style="padding: 1rem 3rem; font-size: 1.2rem;">
-                    <i class="fas fa-rocket"></i> JOIN NOW
-                </button>
-                <p style="margin-top: 1rem; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
-                    By registering, you agree to the rules and enforcement system
-                </p>
-            </div>
+            <p style="margin-top: 1rem; color: rgba(255,255,255,0.6); font-size: 0.9rem; text-align: center;">
+                By using TWS Lotto, you agree to the rules and enforcement system
+            </p>
         </div>
     </div>
 
@@ -720,19 +748,80 @@
         <p>TWS Lotto &copy; 2023 | That War Server Community | <span id="connectionStatus"><i class="fas fa-circle"></i> Connecting...</span></p>
     </footer>
 
-    <!-- Socket.io & App Script -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
-    <!-- App JavaScript -->
+    <!-- App JavaScript - SIMPLE LOCALSTORAGE LOGIN SYSTEM -->
     <script>
+        // Simple User Management
+        const UserManager = {
+            // Store users in localStorage
+            users: JSON.parse(localStorage.getItem('tws_users')) || {},
+            
+            // Save users to localStorage
+            saveUsers() {
+                localStorage.setItem('tws_users', JSON.stringify(this.users));
+            },
+            
+            // Register new user
+            register(username, password, displayName) {
+                // Check if username already exists
+                if (this.users[username]) {
+                    return { success: false, message: 'Username already exists' };
+                }
+                
+                // Check if display name already exists
+                for (let user in this.users) {
+                    if (this.users[user].displayName.toLowerCase() === displayName.toLowerCase()) {
+                        return { success: false, message: 'Display name already taken' };
+                    }
+                }
+                
+                // Create new user
+                this.users[username] = {
+                    username: username,
+                    password: password, // In real app, hash this!
+                    displayName: displayName,
+                    balance: 1000,
+                    gamesPlayed: 0,
+                    gamesWon: 0,
+                    totalWinnings: 0,
+                    totalLosses: 0,
+                    netWinnings: 0,
+                    tickets: { total: 0, perTier: {1: 0, 2: 0, 3: 0, 4: 0} },
+                    joined: new Date().toISOString()
+                };
+                
+                this.saveUsers();
+                return { success: true, user: this.users[username] };
+            },
+            
+            // Login user
+            login(username, password) {
+                const user = this.users[username];
+                if (!user) {
+                    return { success: false, message: 'User not found' };
+                }
+                
+                if (user.password !== password) {
+                    return { success: false, message: 'Wrong password' };
+                }
+                
+                return { success: true, user: user };
+            },
+            
+            // Update user
+            updateUser(username, updates) {
+                if (this.users[username]) {
+                    this.users[username] = { ...this.users[username], ...updates };
+                    this.saveUsers();
+                    return { success: true, user: this.users[username] };
+                }
+                return { success: false, message: 'User not found' };
+            }
+        };
+
         // Main Application
         const TWSApp = {
-            socket: null,
             currentUser: null,
             currentTier: 1,
-            ticketsPerTier: [0, 0, 0, 0],
-            totalTickets: 0,
-            maxTicketsPerPlayer: 50,
             
             // Initialize
             init() {
@@ -740,125 +829,19 @@
                 this.generateTicketBoard();
                 this.updateTierInfo();
                 
-                // Load saved user
-                const savedUser = localStorage.getItem('tws_lotto_user');
+                // Check if user is already logged in
+                const savedUser = localStorage.getItem('tws_current_user');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
                     this.updateUserControls();
-                }
-                
-                // Connect to server
-                this.connectSocket();
-            },
-            
-            // Connect to server - FORCE POLLING FOR VERCEL
-            connectSocket() {
-                // FORCE POLLING ONLY - Vercel blocks WebSockets
-                const socketUrl = window.location.origin;
-                
-                console.log('Connecting to Vercel with polling only:', socketUrl);
-                
-                this.socket = io(socketUrl, {
-                    transports: ['polling'], // ONLY POLLING
-                    reconnection: true,
-                    reconnectionAttempts: 5,
-                    reconnectionDelay: 1000,
-                    timeout: 10000
-                });
-                
-                // Connection established
-                this.socket.on('connect', () => {
-                    console.log('✅ CONNECTED to server via POLLING');
-                    this.showAlert('Connected to TWS Lotto!', 'success');
-                    this.updateConnectionStatus(true);
-                    
-                    // If we have saved user, re-register
-                    if (this.currentUser) {
-                        this.socket.emit('register', {
-                            username: this.currentUser.username,
-                            displayName: this.currentUser.displayName,
-                            avatar: '🎮'
-                        });
-                    }
-                });
-                
-                // Server handshake
-                this.socket.on('connected', (data) => {
-                    console.log('Server:', data.message);
-                });
-                
-                // Registration success
-                this.socket.on('registered', (data) => {
-                    console.log('✅ Registration success:', data);
-                    if (data.success) {
-                        this.currentUser = data.player;
-                        localStorage.setItem('tws_lotto_user', JSON.stringify(data.player));
-                        this.updateUserControls();
-                        this.hideLoginModal();
-                        this.showAlert('Welcome ' + data.player.displayName + '!', 'success');
-                    }
-                });
-                
-                // Player count
-                this.socket.on('players-online', (data) => {
-                    document.getElementById('onlineCount').textContent = data.count;
-                });
-                
-                // Tier info
-                this.socket.on('tier-info', (data) => {
-                    this.updateTierDisplay(data);
-                });
-                
-                // Ticket purchased
-                this.socket.on('ticket-purchased', (data) => {
-                    this.showAlert(`Ticket ${data.ticketId} purchased!`, 'info');
-                });
-                
-                // Balance updated
-                this.socket.on('balance-updated', (data) => {
-                    if (this.currentUser) {
-                        this.currentUser.balance = data.balance;
-                        this.updateUserControls();
-                    }
-                });
-                
-                // Errors
-                this.socket.on('error', (data) => {
-                    console.error('Server error:', data);
-                    this.showAlert('Error: ' + data.message, 'error');
-                });
-                
-                // Connection errors
-                this.socket.on('connect_error', (error) => {
-                    console.error('Connection failed:', error.message);
-                    this.showAlert('Failed to connect. Trying again...', 'warning');
-                    setTimeout(() => this.connectSocket(), 2000);
-                });
-                
-                // Disconnected
-                this.socket.on('disconnect', () => {
-                    console.log('Disconnected from server');
-                    this.updateConnectionStatus(false);
-                    this.showAlert('Disconnected. Reconnecting...', 'warning');
-                });
-            },
-            
-            // Update tier display
-            updateTierDisplay(data) {
-                if (!data) return;
-                
-                document.getElementById('ticketsSold').textContent = data.sold;
-                document.getElementById('uniquePlayers').textContent = data.uniquePlayers;
-                document.getElementById('currentPot').textContent = data.pot;
-                
-                const statusEl = document.getElementById('gameStatus');
-                if (data.status === 'active') {
-                    statusEl.textContent = 'Game Active';
-                    statusEl.className = 'status-badge status-active';
+                    this.hideLoginModal();
                 } else {
-                    statusEl.textContent = 'Waiting for players (2+ needed)';
-                    statusEl.className = 'status-badge status-waiting';
+                    this.showLoginModal();
                 }
+                
+                // Remove the "Connecting..." status since we don't need server
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Ready';
+                document.getElementById('onlineCount').textContent = '0';
             },
             
             // Setup event listeners
@@ -870,23 +853,23 @@
                         e.target.classList.add('active');
                         this.currentTier = parseInt(e.target.dataset.tier);
                         this.updateTierInfo();
-                        
-                        // Get tier data from server
-                        if (this.socket && this.socket.connected) {
-                            this.socket.emit('get-tier-info', { tier: this.currentTier });
-                        }
                     });
                 });
                 
                 // Ticket quantity
-                document.getElementById('ticketQuantity').addEventListener('input', () => {
-                    this.updateTotalPrice();
-                });
+                const qtyInput = document.getElementById('ticketQuantity');
+                if (qtyInput) {
+                    qtyInput.addEventListener('input', () => {
+                        this.updateTotalPrice();
+                    });
+                }
             },
             
             // Generate ticket board
             generateTicketBoard() {
                 const board = document.getElementById('ticketBoard');
+                if (!board) return;
+                
                 board.innerHTML = '';
                 
                 for (let i = 1; i <= 100; i++) {
@@ -905,7 +888,17 @@
                     this.showLoginModal();
                     return;
                 }
-                this.showAlert(`Selected ticket #${ticketId}`, 'info');
+                
+                const price = this.getTierPrice(this.currentTier);
+                const qty = parseInt(document.getElementById('ticketQuantity').value) || 1;
+                const total = price * qty;
+                
+                if (this.currentUser.balance < total) {
+                    this.showAlert(`Need $${total}, but only have $${this.currentUser.balance}`, 'error');
+                    return;
+                }
+                
+                this.showAlert(`Selected ticket #${ticketId} - Click "Buy Tickets" to purchase`, 'info');
             },
             
             // Buy tickets
@@ -915,23 +908,44 @@
                     return;
                 }
                 
-                const quantity = parseInt(document.getElementById('ticketQuantity').value);
+                const qty = parseInt(document.getElementById('ticketQuantity').value) || 1;
                 const price = this.getTierPrice(this.currentTier);
-                const total = quantity * price;
+                const total = price * qty;
                 
                 if (this.currentUser.balance < total) {
                     this.showAlert(`Need $${total}, but only have $${this.currentUser.balance}`, 'error');
                     return;
                 }
                 
-                if (this.socket && this.socket.connected) {
-                    this.socket.emit('buy-tickets', {
-                        tier: this.currentTier,
-                        quantity: quantity
-                    });
-                    this.showAlert(`Purchasing ${quantity} ticket(s)...`, 'info');
-                } else {
-                    this.showAlert('Not connected to server', 'error');
+                // Update user balance
+                this.currentUser.balance -= total;
+                this.currentUser.tickets.total += qty;
+                this.currentUser.tickets.perTier[this.currentTier] = 
+                    (this.currentUser.tickets.perTier[this.currentTier] || 0) + qty;
+                
+                // Save to localStorage
+                UserManager.updateUser(this.currentUser.username, this.currentUser);
+                localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
+                
+                this.updateUserControls();
+                this.showAlert(`Purchased ${qty} ticket(s) for $${total}!`, 'success');
+                
+                // Mark some tickets as purchased (demo)
+                this.markRandomTicketsAsPurchased(qty);
+            },
+            
+            // Mark random tickets as purchased (demo)
+            markRandomTicketsAsPurchased(count) {
+                const tickets = document.querySelectorAll('.ticket.available');
+                const ticketsToMark = Math.min(count, tickets.length);
+                
+                for (let i = 0; i < ticketsToMark; i++) {
+                    const randomIndex = Math.floor(Math.random() * tickets.length);
+                    if (tickets[randomIndex]) {
+                        tickets[randomIndex].classList.remove('available');
+                        tickets[randomIndex].classList.add('purchased', 'yours');
+                        tickets[randomIndex].setAttribute('data-owner', this.currentUser.displayName);
+                    }
                 }
             },
             
@@ -943,8 +957,11 @@
             // Update tier info
             updateTierInfo() {
                 const price = this.getTierPrice(this.currentTier);
+                const qty = parseInt(document.getElementById('ticketQuantity').value) || 1;
+                
                 document.getElementById('currentTierName').textContent = `Tier ${this.currentTier}: $${price} per ticket`;
-                document.getElementById('totalPrice').textContent = price * parseInt(document.getElementById('ticketQuantity').value);
+                document.getElementById('totalPrice').textContent = price * qty;
+                document.getElementById('quantityDisplay').textContent = qty;
                 
                 const desc = {
                     1: "Basic tier - Good for beginners",
@@ -966,31 +983,81 @@
             // Register user
             register() {
                 const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
                 const displayName = document.getElementById('displayName').value.trim();
                 
-                if (!username || !displayName) {
-                    this.showAlert('Enter username and display name', 'warning');
+                if (!username || !password || !displayName) {
+                    this.showAlert('Please fill in all fields', 'warning');
                     return;
                 }
                 
-                if (!this.socket || !this.socket.connected) {
-                    this.showAlert('Connecting to server...', 'info');
-                    setTimeout(() => this.register(), 1000);
+                if (displayName.length < 3) {
+                    this.showAlert('Display name must be at least 3 characters', 'warning');
                     return;
                 }
                 
-                console.log('Registering:', username, displayName);
+                const result = UserManager.register(username, password, displayName);
                 
-                this.socket.emit('register', {
-                    username: username,
-                    displayName: displayName,
-                    avatar: '🎮'
-                });
-                
-                this.showAlert('Creating account...', 'info');
+                if (result.success) {
+                    this.currentUser = result.user;
+                    localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
+                    this.updateUserControls();
+                    this.hideLoginModal();
+                    this.showAlert(`Welcome ${displayName}! You have $${this.currentUser.balance} to start.`, 'success');
+                } else {
+                    this.showAlert(result.message, 'error');
+                }
             },
             
-            // Update user controls
+            // Login user
+            login() {
+                const username = document.getElementById('loginUsername').value.trim();
+                const password = document.getElementById('loginPassword').value.trim();
+                
+                if (!username || !password) {
+                    this.showAlert('Please enter username and password', 'warning');
+                    return;
+                }
+                
+                const result = UserManager.login(username, password);
+                
+                if (result.success) {
+                    this.currentUser = result.user;
+                    localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
+                    this.updateUserControls();
+                    this.hideLoginModal();
+                    this.showAlert(`Welcome back ${this.currentUser.displayName}!`, 'success');
+                } else {
+                    this.showAlert(result.message, 'error');
+                }
+            },
+			
+        // Switch between register/login forms
+        function showForm(formType) {
+            const registerForm = document.getElementById('registerForm');
+            const loginForm = document.getElementById('loginForm');
+            const registerBtn = document.getElementById('showRegister');
+            const loginBtn = document.getElementById('showLogin');
+            
+            if (formType === 'register') {
+                registerForm.style.display = 'block';
+                loginForm.style.display = 'none';
+                registerBtn.classList.add('btn-gold');
+                registerBtn.classList.remove('btn-primary');
+                loginBtn.classList.add('btn-primary');
+                loginBtn.classList.remove('btn-gold');
+            } else {
+                registerForm.style.display = 'none';
+                loginForm.style.display = 'block';
+                loginBtn.classList.add('btn-gold');
+                loginBtn.classList.remove('btn-primary');
+                registerBtn.classList.add('btn-primary');
+                registerBtn.classList.remove('btn-gold');
+            }
+        }
+			
+            
+            // Update user controls in header
             updateUserControls() {
                 const userControls = document.getElementById('userControls');
                 
@@ -998,52 +1065,75 @@
                     userControls.innerHTML = `
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div style="text-align: right;">
-                                <div style="color: var(--gold); font-weight: bold;">
-                                    ${this.currentUser.displayName}
+                                <div style="color: var(--gold); font-weight: bold; font-size: 1.1rem;">
+                                    <i class="fas fa-user"></i> ${this.currentUser.displayName}
                                 </div>
                                 <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
-                                    $${this.currentUser.balance}
+                                    <i class="fas fa-coins"></i> $${this.currentUser.balance} | 
+                                    Tickets: ${this.currentUser.tickets.total}/50
                                 </div>
                             </div>
                             <button class="btn btn-primary" onclick="TWSApp.logout()" style="padding: 0.5rem 1rem;">
-                                Logout
+                                <i class="fas fa-sign-out-alt"></i>
                             </button>
                         </div>
                     `;
                     
-                    // Update stats
+                    // Update user stats in sidebar
                     this.updateUserStats();
                 } else {
                     userControls.innerHTML = `
                         <button class="btn btn-gold" onclick="TWSApp.showLoginModal()">
-                            Login / Register
+                            <i class="fas fa-sign-in-alt"></i> Login / Register
                         </button>
                     `;
                 }
             },
             
-            // Update user stats
+            // Update user stats in sidebar
             updateUserStats() {
                 const userStats = document.getElementById('userStats');
-                if (!this.currentUser) return;
+                if (!this.currentUser || !userStats) return;
                 
                 userStats.innerHTML = `
-                    <div style="display: grid; gap: 0.5rem;">
-                        <div><strong>Balance:</strong> $${this.currentUser.balance}</div>
-                        <div><strong>Tickets:</strong> ${this.totalTickets}/50</div>
-                        <div><strong>Games Played:</strong> ${this.currentUser.gamesPlayed || 0}</div>
-                        <div><strong>Net:</strong> $${this.currentUser.netWinnings || 0}</div>
+                    <div class="stat-box">
+                        <div class="stat-label">Balance</div>
+                        <div class="stat-value">$${this.currentUser.balance}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Total Tickets</div>
+                        <div class="stat-value">${this.currentUser.tickets.total}/50</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Games Played</div>
+                        <div class="stat-value">${this.currentUser.gamesPlayed || 0}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Net Winnings</div>
+                        <div class="stat-value ${(this.currentUser.netWinnings || 0) >= 0 ? 'text-success' : 'text-danger'}">
+                            $${this.currentUser.netWinnings || 0}
+                        </div>
                     </div>
                 `;
             },
             
-            // Show login modal
+            // Show/hide login modal
             showLoginModal() {
-                document.getElementById('loginModal').style.display = 'flex';
+                const modal = document.getElementById('loginModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    // Reset form
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    document.getElementById('displayName').value = '';
+                }
             },
             
             hideLoginModal() {
-                document.getElementById('loginModal').style.display = 'none';
+                const modal = document.getElementById('loginModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
             },
             
             // Show alert
@@ -1054,39 +1144,32 @@
                     top: 20px;
                     right: 20px;
                     padding: 1rem 1.5rem;
-                    background: ${type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#28a745'};
+                    background: ${type === 'error' ? 'var(--danger)' : type === 'warning' ? 'var(--warning)' : 'var(--success)'};
                     color: ${type === 'warning' ? 'black' : 'white'};
                     border-radius: 8px;
                     z-index: 10000;
-                    font-weight: bold;
+                    font-weight: 600;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
                 `;
                 alert.textContent = message;
                 document.body.appendChild(alert);
                 
-                setTimeout(() => alert.remove(), 3000);
-            },
-            
-            // Update connection status
-            updateConnectionStatus(connected) {
-                const status = document.getElementById('connectionStatus');
-                if (status) {
-                    status.innerHTML = connected 
-                        ? '<i class="fas fa-circle text-success"></i> Connected'
-                        : '<i class="fas fa-circle text-danger"></i> Disconnected';
-                }
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
             },
             
             // Change quantity
             changeQuantity(delta) {
                 const input = document.getElementById('ticketQuantity');
-                let val = parseInt(input.value) + delta;
-                val = Math.max(1, Math.min(10, val));
-                input.value = val;
+                let value = parseInt(input.value) + delta;
+                value = Math.max(1, Math.min(10, value));
+                input.value = value;
                 this.updateTotalPrice();
             },
             
-            // Buy max
+            // Buy max tickets (5)
             buyMaxTickets() {
                 document.getElementById('ticketQuantity').value = 5;
                 this.updateTotalPrice();
@@ -1096,13 +1179,14 @@
             // Logout
             logout() {
                 this.currentUser = null;
-                localStorage.removeItem('tws_lotto_user');
+                localStorage.removeItem('tws_current_user');
                 this.updateUserControls();
-                this.showAlert('Logged out', 'info');
+                this.showAlert('Logged out successfully', 'info');
+                this.showLoginModal();
             }
         };
         
-        // Global functions
+        // Global functions for HTML onclick
         function changeQuantity(delta) {
             TWSApp.changeQuantity(delta);
         }
@@ -1119,7 +1203,11 @@
             TWSApp.register();
         }
         
-        // Start app
+        function login() {
+            TWSApp.login();
+        }
+        
+        // Initialize app when page loads
         document.addEventListener('DOMContentLoaded', () => {
             TWSApp.init();
         });
