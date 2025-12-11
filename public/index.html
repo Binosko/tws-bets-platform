@@ -1031,34 +1031,6 @@ register() {
   }, 5000);
 },
 
-<!-- Debug Panel (remove after fixing) -->
-<div style="position: fixed; bottom: 10px; right: 10px; background: black; color: lime; padding: 10px; border: 1px solid lime; font-family: monospace; font-size: 12px; z-index: 9999; max-width: 300px; max-height: 200px; overflow: auto; display: none;" id="debugPanel">
-  <div><button onclick="document.getElementById('debugPanel').style.display='none'">X</button> Debug</div>
-  <div id="debugLog"></div>
-</div>
-
-<script>
-// Debug logging
-window.debugLog = [];
-function debug(msg) {
-  window.debugLog.push(new Date().toLocaleTimeString() + ': ' + msg);
-  if (window.debugLog.length > 10) window.debugLog.shift();
-  document.getElementById('debugLog').innerHTML = window.debugLog.join('<br>');
-}
-
-// Show debug panel on triple click
-let clickCount = 0;
-document.addEventListener('click', () => {
-  clickCount++;
-  setTimeout(() => { clickCount = 0; }, 1000);
-  if (clickCount >= 3) {
-    document.getElementById('debugPanel').style.display = 'block';
-  }
-});
-
-// Add to your connectSocket function:
-// debug('Connecting to: ' + socketUrl);
-// Add debug logs to all socket events
 	</script>
 </body>
 </html>
