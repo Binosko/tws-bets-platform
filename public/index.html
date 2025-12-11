@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎫 TWS Lotto - High Stakes, High Rewards</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+        
+        :root {
+            --primary: #8B0000;
+            --primary-dark: #660000;
+            --gold: #FFD700;
+            --gold-dark: #FFA500;
+            --dark: #0a0a0a;
+            --dark-light: #1a1a1a;
+            --light: #ffffff;
+            --gray: #333;
+            --success: #00FF00;
+            --danger: #FF4444;
+            --warning: #FFA500;
+            --available: #28a745;
+            --purchased: #dc3545;
+            --waiting: #ffc107;
+            --in-progress: #17a2b8;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, var(--dark) 0%, #1a1a1a 100%);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 4px solid var(--gold);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo h1 {
+            font-size: 2.2rem;
+            color: var(--gold);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .logo .tagline {
+            color: var(--primary);
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        /* Warning Banner */
+        .warning-banner {
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 2px solid var(--gold);
+        }
+        
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            gap: 2rem;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+        }
+        
+        .main-content {
+            flex: 1;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(30, 30, 30, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card-title {
+            color: var(--gold);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        /* Tier Buttons */
+        .tier-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .tier-btn {
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tier-btn.active {
+            background: linear-gradient(45deg, var(--gold), var(--gold-dark));
+            color: black;
+            border-color: var(--gold);
+            transform: translateY(-2px);
+        }
+        
+        .tier-btn:hover:not(.active) {
+            border-color: var(--gold);
+            background: rgba(255, 215, 0, 0.1);
+        }
+        
+        /* Tier Info */
+        .tier-info {
+            background: rgba(139, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border: 2px solid var(--primary);
+        }
+        
+        .tier-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--gold);
+        }
+        
+        /* Ticket Board */
+        .ticket-board-container {
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border: 2px solid var(--gold);
+        }
+        
+        .ticket-board {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            margin: 1rem 0;
+        }
+        
+        .ticket {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            border: 2px solid transparent;
+        }
+        
+        .ticket.available {
+            background: var(--available);
+            color: white;
+        }
+        
+        .ticket.purchased {
+            background: var(--purchased);
+            color: white;
+            cursor: not-allowed;
+        }
+        
+        .ticket.purchased:hover::after {
+            content: attr(data-owner);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            z-index: 100;
+            border: 1px solid var(--gold);
+        }
+        
+        .ticket:hover:not(.purchased) {
+            transform: scale(1.1);
+            border-color: var(--gold);
+            z-index: 1;
+        }
+        
+        .ticket.yours {
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 10px var(--gold);
+        }
+        
+        /* Buy Controls */
+        .buy-controls {
+            display: flex;
+            gap: 1rem;
+            margin: 1.5rem 0;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gold {
+            background: linear-gradient(45deg, var(--gold), var(--gold-dark));
+            color: black;
+            font-weight: bold;
+        }
+        
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 215, 0, 0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(139, 0, 0, 0.4);
+        }
+        
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.5rem;
+            border-radius: 8px;
+        }
+        
+        .quantity-control button {
+            background: var(--gold);
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .quantity-control input {
+            width: 60px;
+            background: transparent;
+            border: none;
+            color: white;
+            text-align: center;
+            font-size: 1.2rem;
+        }
+        
+        /* Status Badges */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        
+        .status-waiting { background: var(--waiting); color: black; }
+        .status-active { background: var(--available); color: white; }
+        .status-in-progress { background: var(--in-progress); color: white; }
+        .status-finished { background: #6c757d; color: white; }
+        
+        /* Player List */
+        .players-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        
+        /* History */
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .history-item.win {
+            border-left: 4px solid var(--available);
+        }
+        
+        .history-item.loss {
+            border-left: 4px solid var(--purchased);
+        }
+        
+        /* Login Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+        
+        .modal-content {
+            background: var(--dark-light);
+            border-radius: 12px;
+            padding: 2.5rem;
+            max-width: 500px;
+            width: 100%;
+            border: 3px solid var(--gold);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+        
+        /* Inputs */
+        .input-group {
+            margin: 1.25rem 0;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--gold);
+            font-weight: 600;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            
+            .tier-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .ticket-board {
+                grid-template-columns: repeat(8, 1fr);
+                gap: 3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .ticket-board {
+                grid-template-columns: repeat(5, 1fr);
+            }
+            
+            .tier-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .fade-in {
+            animation: slideIn 0.3s ease;
+        }
+        
+        /* Utility */
+        .text-center { text-align: center; }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        .text-gold { color: var(--gold); }
+        .hidden { display: none; }
+        .mt-2 { margin-top: 2rem; }
+        .mb-2 { margin-bottom: 2rem; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .gap-2 { gap: 2rem; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div>
+                <h1><i class="fas fa-ticket-alt"></i> TWS LOTTO</h1>
+                <p class="tagline">Fair Play, Enforced Results</p>
+            </div>
+        </div>
+        
+        <div class="user-info">
+            <div class="online-stats">
+                <i class="fas fa-wifi"></i>
+                <span id="onlineCount">0</span> Online
+            </div>
+            <div id="userControls"></div>
+        </div>
+    </header>
+
+    <!-- Warning Banner -->
+    <div class="warning-banner">
+        <i class="fas fa-exclamation-triangle"></i> 
+        <strong>IN-GAME CURRENCY ONLY. NOT REAL MONEY.</strong> Failure to pay winnings within <strong>3 days</strong> = Report to Admins & Potential Ban.
+    </div>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- User Stats -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-user-circle"></i> Player Stats</h3>
+                <div id="userStats">
+                    <p>Please log in to see your stats.</p>
+                </div>
+            </div>
+            
+            <!-- Active Games -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-fire"></i> Active Games</h3>
+                <div id="activeGamesList" class="players-list">
+                    <p>No active games yet.</p>
+                </div>
+            </div>
+            
+            <!-- Recent History -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-history"></i> Recent Draws</h3>
+                <div id="recentDraws" class="history-list">
+                    <p>No recent draws.</p>
+                </div>
+            </div>
+            
+            <!-- Important Rule -->
+            <div class="card" style="border-color: var(--danger);">
+                <h3 class="card-title"><i class="fas fa-gavel"></i> Rule Enforcement</h3>
+                <p><i class="fas fa-exclamation-circle text-danger"></i> <strong>Important:</strong> If player doesn't pay within <span class="text-warning">3 days</span>, report to server admins with game ID.</p>
+                <p class="mt-2"><i class="fas fa-ban text-danger"></i> All bets are final. No refunds.</p>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <h1 class="text-gold">🎫 TWS Lotto - High Stakes, High Rewards</h1>
+            <p class="mb-2">Buy tickets. Wait for 2+ players. Win the pot when the 30-minute timer ends!</p>
+            
+            <!-- Tier Selection -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-layer-group"></i> Choose Your Tier</h3>
+                <div class="tier-buttons">
+                    <button class="tier-btn active" data-tier="1">Tier 1 - $50</button>
+                    <button class="tier-btn" data-tier="2">Tier 2 - $150</button>
+                    <button class="tier-btn" data-tier="3">Tier 3 - $300</button>
+                    <button class="tier-btn" data-tier="4">Tier 4 - $500</button>
+                </div>
+            </div>
+            
+            <!-- Current Tier Info -->
+            <div class="card tier-info">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 id="currentTierName" class="text-gold">Tier 1: $50 per ticket</h3>
+                        <p id="tierDescription">Basic tier - Good for beginners</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="stat-label">Next Draw In</div>
+                        <div id="countdownTimer" class="stat-value">30:00</div>
+                    </div>
+                </div>
+                
+                <div class="tier-stats mt-2">
+                    <div class="stat-box">
+                        <div class="stat-label">Tickets Sold</div>
+                        <div class="stat-value"><span id="ticketsSold">0</span>/100</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Your Tickets</div>
+                        <div class="stat-value"><span id="yourTickets">0</span> (<span id="totalTickets">0</span>/50)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Unique Players</div>
+                        <div class="stat-value"><span id="uniquePlayers">0</span>/2+</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Current Pot</div>
+                        <div class="stat-value">$<span id="currentPot">0</span></div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2">
+                    <div>
+                        <span class="status-badge" id="gameStatus">Waiting for players (2+ needed)</span>
+                    </div>
+                    <div>
+                        <span id="gameRules"><i class="fas fa-info-circle"></i> Game only runs with 2+ players</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Buy Controls -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-shopping-cart"></i> Buy Tickets</h3>
+                <div class="buy-controls">
+                    <div class="quantity-control">
+                        <button onclick="changeQuantity(-1)">-</button>
+                        <input type="number" id="ticketQuantity" value="1" min="1" max="10" readonly>
+                        <button onclick="changeQuantity(1)">+</button>
+                    </div>
+                    <button class="btn btn-gold" onclick="buyTickets()">
+                        <i class="fas fa-cart-plus"></i> Buy <span id="quantityDisplay">1</span> Ticket(s) - $<span id="totalPrice">50</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="buyMaxTickets()">
+                        <i class="fas fa-bolt"></i> Buy Max (5)
+                    </button>
+                    <div style="margin-left: auto;">
+                        <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Max 50 tickets total across all tiers</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ticket Board -->
+            <div class="ticket-board-container">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-gold"><i class="fas fa-th-large"></i> Ticket Board (1-100)</h3>
+                    <div>
+                        <span class="status-badge status-active">Green = Available</span>
+                        <span class="status-badge status-waiting ml-2">Red = Purchased (hover to see owner)</span>
+                        <span class="status-badge" style="background: var(--gold); color: black;" class="ml-2">Gold Border = Yours</span>
+                    </div>
+                </div>
+                
+                <div id="ticketBoard" class="ticket-board">
+                    <!-- Tickets will be generated by JavaScript -->
+                </div>
+                
+                <div class="text-center mt-2">
+                    <p><i class="fas fa-mouse-pointer"></i> Click on green tickets to purchase. Hover over red tickets to see who bought them.</p>
+                </div>
+            </div>
+            
+            <!-- Players in this Tier -->
+            <div class="card">
+                <h3 class="card-title"><i class="fas fa-users"></i> Players in This Tier</h3>
+                <div id="playersInTier" class="players-list">
+                    <p>No players yet. Be the first!</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <h3 class="card-title text-center"><i class="fas fa-user-plus"></i> Join TWS Lotto</h3>
+            
+            <div class="input-group">
+                <label class="input-label">Username</label>
+                <input type="text" id="username" class="input-field" placeholder="Choose a username" maxlength="20">
+            </div>
+            
+            <div class="input-group">
+                <label class="input-label">Password</label>
+                <input type="password" id="password" class="input-field" placeholder="Create a password">
+            </div>
+            
+            <div class="input-group">
+                <label class="input-label">In-Game Display Name</label>
+                <input type="text" id="displayName" class="input-field" placeholder="e.g., That_Rebel_Spy" maxlength="30">
+                <small style="color: rgba(255,255,255,0.6); margin-top: 0.25rem; display: block;">
+                    This must match your in-game name exactly
+                </small>
+            </div>
+            
+            <div class="text-center mt-2">
+                <button class="btn btn-gold" onclick="register()" style="padding: 1rem 3rem; font-size: 1.2rem;">
+                    <i class="fas fa-rocket"></i> JOIN NOW
+                </button>
+                <p style="margin-top: 1rem; color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+                    By registering, you agree to the rules and enforcement system
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>TWS Lotto &copy; 2023 | For That War Server Community | <span id="connectionStatus"><i class="fas fa-circle"></i> Connecting...</span></p>
+    </footer>
+
+    <!-- Socket.io & App Script -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <!-- App JavaScript will be added here -->
+    <script>
+        // Main Application
+        const TWSApp = {
+            socket: null,
+            currentUser: null,
+            currentTier: 1,
+            ticketsPerTier: [0, 0, 0, 0], // Track tickets per tier (index 0 unused)
+            totalTickets: 0,
+            maxTicketsPerPlayer: 50,
+            
+            // Initialize
+            init() {
+                this.connectSocket();
+                this.setupEventListeners();
+                this.generateTicketBoard();
+                this.updateTierInfo();
+                
+                // Load saved user
+                const savedUser = localStorage.getItem('tws_lotto_user');
+                if (savedUser) {
+                    this.currentUser = JSON.parse(savedUser);
+                    this.updateUserControls();
+                } else {
+                    this.showLoginModal();
+                }
+            },
+            
+            // Connect to server
+            connectSocket() {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const host = window.location.host;
+                const socketUrl = `${protocol}//${host}`;
+                
+                this.socket = io(socketUrl, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true
+                });
+                
+                // Socket events
+                this.socket.on('connect', () => {
+                    console.log('Connected to TWS Lotto server');
+                    this.updateConnectionStatus(true);
+                    
+                    if (this.currentUser) {
+                        this.socket.emit('register', {
+                            ...this.currentUser,
+                            socketId: this.socket.id
+                        });
+                    }
+                });
+                
+                this.socket.on('registered', (data) => {
+                    if (data.success) {
+                        this.currentUser = { ...this.currentUser, ...data.player };
+                        localStorage.setItem('tws_lotto_user', JSON.stringify(this.currentUser));
+                        this.updateUserControls();
+                        this.updateTierInfo();
+                        this.hideLoginModal();
+                    }
+                });
+                
+                this.socket.on('tier-update', (data) => {
+                    this.updateTierDisplay(data);
+                });
+                
+                this.socket.on('ticket-purchased', (data) => {
+                    this.updateTicketOnBoard(data.ticketId, data.playerName);
+                });
+                
+                this.socket.on('game-started', (data) => {
+                    this.showGameStarted(data);
+                });
+                
+                this.socket.on('game-finished', (data) => {
+                    this.showGameResult(data);
+                });
+                
+                this.socket.on('players-online', (data) => {
+                    document.getElementById('onlineCount').textContent = data.count;
+                });
+                
+                this.socket.on('error', (data) => {
+                    this.showAlert(data.message, 'error');
+                });
+                
+                this.socket.on('disconnect', () => {
+                    this.updateConnectionStatus(false);
+                });
+            },
+            
+            // Setup event listeners
+            setupEventListeners() {
+                // Tier button clicks
+                document.querySelectorAll('.tier-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.currentTier = parseInt(e.target.dataset.tier);
+                        this.updateTierInfo();
+                        this.updateTicketBoard();
+                    });
+                });
+                
+                // Update quantity display
+                document.getElementById('ticketQuantity').addEventListener('input', (e) => {
+                    this.updateTotalPrice();
+                });
+            },
+            
+            // Generate the 100-ticket board
+            generateTicketBoard() {
+                const board = document.getElementById('ticketBoard');
+                board.innerHTML = '';
+                
+                for (let i = 1; i <= 100; i++) {
+                    const ticket = document.createElement('div');
+                    ticket.className = 'ticket available';
+                    ticket.textContent = i;
+                    ticket.dataset.ticketId = i;
+                    ticket.addEventListener('click', () => this.selectTicket(i));
+                    
+                    board.appendChild(ticket);
+                }
+            },
+            
+            // Update ticket board display
+            updateTicketBoard() {
+                // This will be populated with server data
+                console.log(`Updating board for tier ${this.currentTier}`);
+            },
+            
+            // Select a ticket
+            selectTicket(ticketId) {
+                if (!this.currentUser) {
+                    this.showLoginModal();
+                    return;
+                }
+                
+                if (this.totalTickets >= this.maxTicketsPerPlayer) {
+                    this.showAlert('You have reached the maximum of 50 tickets!', 'warning');
+                    return;
+                }
+                
+                // In real app, this would send to server
+                this.showAlert(`Ticket ${ticketId} selected - use Buy button to purchase`, 'info');
+            },
+            
+            // Buy tickets
+            buyTickets() {
+                if (!this.currentUser) {
+                    this.showLoginModal();
+                    return;
+                }
+                
+                const quantity = parseInt(document.getElementById('ticketQuantity').value);
+                const tierPrice = this.getTierPrice(this.currentTier);
+                const totalCost = quantity * tierPrice;
+                
+                if (this.totalTickets + quantity > this.maxTicketsPerPlayer) {
+                    this.showAlert(`Cannot buy ${quantity} tickets. You can only have ${this.maxTicketsPerPlayer - this.totalTickets} more.`, 'warning');
+                    return;
+                }
+                
+                if (this.currentUser.balance < totalCost) {
+                    this.showAlert(`Insufficient balance! You need $${totalCost} but have $${this.currentUser.balance}`, 'error');
+                    return;
+                }
+                
+                // Send to server
+                if (this.socket && this.socket.connected) {
+                    this.socket.emit('buy-tickets', {
+                        tier: this.currentTier,
+                        quantity: quantity,
+                        ticketIds: this.getRandomTicketIds(quantity) // In real app, user selects
+                    });
+                    
+                    this.showAlert(`Buying ${quantity} ticket(s) for $${totalCost}...`, 'info');
+                } else {
+                    this.showAlert('Connecting to server...', 'warning');
+                }
+            },
+            
+            // Get random ticket IDs (for demo)
+            getRandomTicketIds(count) {
+                const ids = [];
+                while (ids.length < count) {
+                    const id = Math.floor(Math.random() * 100) + 1;
+                    if (!ids.includes(id)) ids.push(id);
+                }
+                return ids;
+            },
+            
+            // Get tier price
+            getTierPrice(tier) {
+                const prices = {1: 50, 2: 150, 3: 300, 4: 500};
+                return prices[tier] || 50;
+            },
+            
+            // Update tier info display
+            updateTierInfo() {
+                const price = this.getTierPrice(this.currentTier);
+                document.getElementById('currentTierName').textContent = `Tier ${this.currentTier}: $${price} per ticket`;
+                document.getElementById('totalPrice').textContent = price * parseInt(document.getElementById('ticketQuantity').value);
+                
+                // Update descriptions
+                const descriptions = {
+                    1: "Basic tier - Good for beginners",
+                    2: "Mid tier - Balanced risk/reward",
+                    3: "High tier - For serious players",
+                    4: "Premium tier - Maximum stakes"
+                };
+                document.getElementById('tierDescription').textContent = descriptions[this.currentTier];
+            },
+            
+            // Update total price when quantity changes
+            updateTotalPrice() {
+                const quantity = parseInt(document.getElementById('ticketQuantity').value) || 1;
+                const price = this.getTierPrice(this.currentTier);
+                document.getElementById('totalPrice').textContent = price * quantity;
+                document.getElementById('quantityDisplay').textContent = quantity;
+            },
+            
+            // Register user
+            register() {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const displayName = document.getElementById('displayName').value.trim();
+                
+                if (!username || !password || !displayName) {
+                    this.showAlert('Please fill in all fields', 'warning');
+                    return;
+                }
+                
+                if (displayName.length < 3) {
+                    this.showAlert('Display name must be at least 3 characters', 'warning');
+                    return;
+                }
+                
+                // Check if display name contains spaces (common in game names)
+                if (!displayName.includes('_') && !displayName.includes(' ')) {
+                    if (!confirm('Most in-game names use underscores (_). Are you sure about your display name?')) {
+                        return;
+                    }
+                }
+                
+                if (!this.socket || !this.socket.connected) {
+                    this.showAlert('Connecting to server...', 'info');
+                    setTimeout(() => this.register(), 1000);
+                    return;
+                }
+                
+                this.socket.emit('register', {
+                    username: username,
+                    password: password,
+                    displayName: displayName,
+                    balance: 1000, // Starting balance
+                    avatar: '🎮'
+                });
+            },
+            
+            // Update user controls in header
+            updateUserControls() {
+                const userControls = document.getElementById('userControls');
+                
+                if (this.currentUser) {
+                    userControls.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="text-align: right;">
+                                <div style="color: var(--gold); font-weight: bold; font-size: 1.1rem;">
+                                    <i class="fas fa-user"></i> ${this.currentUser.displayName}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+                                    <i class="fas fa-coins"></i> $${this.currentUser.balance.toLocaleString()} | 
+                                    Tickets: ${this.totalTickets}/50
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="TWSApp.logout()" style="padding: 0.5rem 1rem;">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Update user stats in sidebar
+                    this.updateUserStats();
+                } else {
+                    userControls.innerHTML = `
+                        <button class="btn btn-gold" onclick="TWSApp.showLoginModal()">
+                            <i class="fas fa-sign-in-alt"></i> Login / Register
+                        </button>
+                    `;
+                }
+            },
+            
+            // Update user stats in sidebar
+            updateUserStats() {
+                const userStats = document.getElementById('userStats');
+                if (!this.currentUser) return;
+                
+                userStats.innerHTML = `
+                    <div class="stat-box">
+                        <div class="stat-label">Balance</div>
+                        <div class="stat-value">$${this.currentUser.balance}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Total Tickets</div>
+                        <div class="stat-value">${this.totalTickets}/50</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Games Played</div>
+                        <div class="stat-value">${this.currentUser.gamesPlayed || 0}</div>
+                    </div>
+                    <div class="stat-box mt-2">
+                        <div class="stat-label">Net Winnings</div>
+                        <div class="stat-value ${(this.currentUser.netWinnings || 0) >= 0 ? 'text-success' : 'text-danger'}">
+                            $${this.currentUser.netWinnings || 0}
+                        </div>
+                    </div>
+                `;
+            },
+            
+            // Show/hide login modal
+            showLoginModal() {
+                document.getElementById('loginModal').style.display = 'flex';
+            },
+            
+            hideLoginModal() {
+                document.getElementById('loginModal').style.display = 'none';
+            },
+            
+            // Show alert
+            showAlert(message, type = 'info') {
+                const alert = document.createElement('div');
+                alert.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 1rem 1.5rem;
+                    background: ${type === 'error' ? 'var(--danger)' : type === 'warning' ? 'var(--warning)' : 'var(--gold)'};
+                    color: ${type === 'warning' ? 'black' : 'white'};
+                    border-radius: 8px;
+                    z-index: 10000;
+                    font-weight: 600;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    animation: slideIn 0.3s ease;
+                `;
+                alert.textContent = message;
+                document.body.appendChild(alert);
+                
+                setTimeout(() => {
+                    alert.remove();
+                }, 3000);
+            },
+            
+            // Update connection status
+            updateConnectionStatus(connected) {
+                const status = document.getElementById('connectionStatus');
+                if (status) {
+                    status.innerHTML = connected 
+                        ? '<i class="fas fa-circle text-success"></i> Connected'
+                        : '<i class="fas fa-circle text-danger"></i> Disconnected';
+                }
+            },
+            
+            // Change ticket quantity
+            changeQuantity(delta) {
+                const input = document.getElementById('ticketQuantity');
+                let value = parseInt(input.value) + delta;
+                value = Math.max(1, Math.min(10, value));
+                input.value = value;
+                this.updateTotalPrice();
+            },
+            
+            // Buy max tickets (5)
+            buyMaxTickets() {
+                document.getElementById('ticketQuantity').value = 5;
+                this.updateTotalPrice();
+                this.buyTickets();
+            },
+            
+            // Logout
+            logout() {
+                this.currentUser = null;
+                localStorage.removeItem('tws_lotto_user');
+                this.updateUserControls();
+                this.showLoginModal();
+            }
+        };
+        
+        // Global functions for HTML onclick
+        function changeQuantity(delta) {
+            TWSApp.changeQuantity(delta);
+        }
+        
+        function buyTickets() {
+            TWSApp.buyTickets();
+        }
+        
+        function buyMaxTickets() {
+            TWSApp.buyMaxTickets();
+        }
+        
+        function register() {
+            TWSApp.register();
+        }
+        
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            TWSApp.init();
+        });
+    </script>
+</body>
+</html>
