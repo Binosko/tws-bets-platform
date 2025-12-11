@@ -578,7 +578,7 @@
         <!-- Main Content -->
         <div class="main-content">
             <h1 class="text-gold">🎫 TWS Lotto - High Stakes, High Rewards</h1>
-            <p class="mb-2">Click tickets to select them. Buy selected tickets. Wait for 2+ players. Win the pot when the 30-minute timer ends!</p>
+            <p class="mb-2">Click a ticket to select it. Buy one ticket at a time. Wait for 2+ players. Win the pot when the 30-minute timer ends!</p>
             
             <!-- Tier Selection -->
             <div class="card">
@@ -611,11 +611,11 @@
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Your Tickets</div>
-                        <div class="stat-value"><span id="yourTickets">0</span>/50</div>
+                        <div class="stat-value"><span id="yourTickets">0</span></div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Unique Players</div>
-                        <div class="stat-value"><span id="uniquePlayers">0</span>/2+</div>
+                        <div class="stat-value"><span id="uniquePlayers">0</span></div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Current Pot</div>
@@ -628,7 +628,7 @@
                         <span class="status-badge" id="gameStatus">Waiting for players (2+ needed)</span>
                     </div>
                     <div>
-                        <span id="selectedTicketsCount">0 tickets selected</span>
+                        <span id="selectedTicketsCount">Select a ticket to buy</span>
                     </div>
                 </div>
             </div>
@@ -636,7 +636,7 @@
             <!-- Buy Button -->
             <div class="buy-button-container">
                 <button class="btn btn-gold" id="buyButton" disabled>
-                    <i class="fas fa-shopping-cart"></i> Buy Selected Ticket(s)
+                    <i class="fas fa-shopping-cart"></i> Buy Selected Ticket
                 </button>
                 <p class="text-warning mt-1"><i class="fas fa-exclamation-triangle"></i> Max 50 tickets total across all tiers</p>
             </div>
@@ -657,7 +657,7 @@
                 </div>
                 
                 <div class="text-center mt-2">
-                    <p><i class="fas fa-mouse-pointer"></i> Click on green tickets to select them. Click "Buy Selected Ticket(s)" to purchase.</p>
+                    <p><i class="fas fa-mouse-pointer"></i> Click on ONE green ticket to select it, then click "Buy Selected Ticket"</p>
                 </div>
             </div>
             
@@ -738,10 +738,10 @@
         <p>TWS Lotto &copy; 2023 | That War Server Community | <span id="connectionStatus"><i class="fas fa-circle text-success"></i> Ready</span></p>
     </footer>
 
-    <!-- App JavaScript - REAL WORKING LOTTO GAME -->
+    <!-- FIXED WORKING LOTTO GAME -->
     <script>
         // ============================================
-        // REAL LOTTO GAME SYSTEM
+        // FIXED LOTTO GAME SYSTEM
         // ============================================
         
         const LOTTO_CONFIG = {
@@ -755,38 +755,80 @@
             minPlayers: 2
         };
 
-        // Game State Manager
-        const GameManager = {
-            // Load from localStorage or create fresh
-            state: JSON.parse(localStorage.getItem('tws_lotto_state')) || {
-                users: {},
-                lotteries: {
-                    1: { tickets: {}, players: new Set(), startTime: null, timer: null, pot: 0 },
-                    2: { tickets: {}, players: new Set(), startTime: null, timer: null, pot: 0 },
-                    3: { tickets: {}, players: new Set(), startTime: null, timer: null, pot: 0 },
-                    4: { tickets: {}, players: new Set(), startTime: null, timer: null, pot: 0 }
-                },
-                history: [],
-                activeGames: []
+        // SIMPLE GAME STATE
+        const GameState = {
+            // Load from localStorage
+            load() {
+                const saved = localStorage.getItem('tws_lotto_fixed');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    // Convert arrays back to Sets
+                    for (let tier = 1; tier <= 4; tier++) {
+                        if (parsed.lotteries && parsed.lotteries[tier] && parsed.lotteries[tier].players) {
+                            parsed.lotteries[tier].players = new Set(parsed.lotteries[tier].players);
+                        }
+                    }
+                    return parsed;
+                }
+                
+                // Default state
+                return {
+                    users: {},
+                    lotteries: {},
+                    history: [],
+                    activeGames: {}
+                };
             },
             
-            // Save state to localStorage
-            saveState() {
-                localStorage.setItem('tws_lotto_state', JSON.stringify(this.state));
+            // Save to localStorage
+            save(state) {
+                // Convert Sets to arrays for storage
+                const toSave = JSON.parse(JSON.stringify(state));
+                for (let tier = 1; tier <= 4; tier++) {
+                    if (toSave.lotteries && toSave.lotteries[tier] && toSave.lotteries[tier].players instanceof Set) {
+                        toSave.lotteries[tier].players = Array.from(toSave.lotteries[tier].players);
+                    }
+                }
+                localStorage.setItem('tws_lotto_fixed', JSON.stringify(toSave));
+            },
+            
+            // Initialize empty state for a tier
+            initTierState(tier) {
+                return {
+                    tickets: {}, // ticket# -> username
+                    players: new Set(), // unique players
+                    pot: 0,
+                    startTime: null,
+                    drawTime: LOTTO_CONFIG.tiers[tier].drawTime,
+                    status: 'waiting' // waiting, active, drawing
+                };
+            }
+        };
+
+        // GAME LOGIC
+        const LottoGame = {
+            state: GameState.load(),
+            
+            // Initialize state if empty
+            init() {
+                for (let tier = 1; tier <= 4; tier++) {
+                    if (!this.state.lotteries[tier]) {
+                        this.state.lotteries[tier] = GameState.initTierState(tier);
+                    }
+                }
+                this.save();
+            },
+            
+            // Save state
+            save() {
+                GameState.save(this.state);
             },
             
             // Register user
-            registerUser(username, password, displayName) {
+            register(username, password, displayName) {
                 // Check if username exists
                 if (this.state.users[username]) {
                     return { success: false, message: 'Username already exists' };
-                }
-                
-                // Check if display name exists
-                for (let user in this.state.users) {
-                    if (this.state.users[user].displayName.toLowerCase() === displayName.toLowerCase()) {
-                        return { success: false, message: 'Display name already taken' };
-                    }
                 }
                 
                 // Create user
@@ -794,43 +836,54 @@
                     username: username,
                     password: password,
                     displayName: displayName,
-                    tickets: { total: 0, purchased: [] },
+                    tickets: [], // array of {tier, ticketNumber, timestamp}
                     stats: {
                         gamesPlayed: 0,
                         gamesWon: 0,
                         totalWon: 0,
                         totalLost: 0
-                    },
-                    joined: new Date().toISOString()
+                    }
                 };
                 
-                this.saveState();
+                this.save();
                 return { success: true, user: this.state.users[username] };
             },
             
             // Login user
-            loginUser(username, password) {
+            login(username, password) {
                 const user = this.state.users[username];
                 if (!user) return { success: false, message: 'User not found' };
                 if (user.password !== password) return { success: false, message: 'Wrong password' };
                 return { success: true, user: user };
             },
             
-            // Purchase ticket
-            purchaseTicket(username, tier, ticketNumber) {
-                const user = this.state.users[username];
-                const lottery = this.state.lotteries[tier];
+            // Buy a SINGLE ticket
+            buyTicket(username, tier, ticketNumber) {
+                console.log(`Buying ticket: user=${username}, tier=${tier}, ticket=${ticketNumber}`);
                 
+                const user = this.state.users[username];
                 if (!user) return { success: false, message: 'User not found' };
                 
-                // Check if user has reached ticket limit
-                if (user.tickets.total >= LOTTO_CONFIG.maxTicketsPerPlayer) {
+                // Get or initialize lottery state
+                if (!this.state.lotteries[tier]) {
+                    this.state.lotteries[tier] = GameState.initTierState(tier);
+                }
+                const lottery = this.state.lotteries[tier];
+                
+                // Check ticket limit
+                const userTickets = user.tickets.length;
+                if (userTickets >= LOTTO_CONFIG.maxTicketsPerPlayer) {
                     return { success: false, message: `Maximum ${LOTTO_CONFIG.maxTicketsPerPlayer} tickets reached` };
                 }
                 
-                // Check if ticket is available
+                // Check if ticket is already purchased
                 if (lottery.tickets[ticketNumber]) {
                     return { success: false, message: 'Ticket already purchased' };
+                }
+                
+                // Check if ticket number is valid
+                if (ticketNumber < 1 || ticketNumber > 100) {
+                    return { success: false, message: 'Invalid ticket number' };
                 }
                 
                 // Purchase ticket
@@ -839,26 +892,26 @@
                 lottery.pot += LOTTO_CONFIG.tiers[tier].price;
                 
                 // Update user
-                user.tickets.total += 1;
-                user.tickets.purchased.push({ tier, ticket: ticketNumber, time: Date.now() });
+                user.tickets.push({
+                    tier: tier,
+                    ticket: ticketNumber,
+                    time: Date.now()
+                });
                 
                 // Start timer if this is the 2nd player
                 if (lottery.players.size >= LOTTO_CONFIG.minPlayers && !lottery.startTime) {
+                    console.log(`Starting timer for tier ${tier} with ${lottery.players.size} players`);
                     lottery.startTime = Date.now();
-                    lottery.timer = LOTTO_CONFIG.tiers[tier].drawTime;
+                    lottery.status = 'active';
                     
-                    // Add to active games
-                    this.state.activeGames.push({
-                        tier: tier,
-                        startTime: lottery.startTime,
-                        endTime: lottery.startTime + lottery.timer,
-                        players: Array.from(lottery.players),
-                        pot: lottery.pot
-                    });
+                    // Schedule draw
+                    setTimeout(() => {
+                        this.drawWinner(tier);
+                    }, lottery.drawTime);
                 }
                 
-                this.saveState();
-                this.updateActiveGames();
+                this.save();
+                console.log(`Ticket purchased successfully. Pot: $${lottery.pot}, Players: ${lottery.players.size}`);
                 
                 return { 
                     success: true, 
@@ -869,27 +922,39 @@
             
             // Get lottery info
             getLotteryInfo(tier) {
+                if (!this.state.lotteries[tier]) {
+                    this.state.lotteries[tier] = GameState.initTierState(tier);
+                }
+                
                 const lottery = this.state.lotteries[tier];
-                const tickets = Object.keys(lottery.tickets).length;
-                const players = lottery.players.size;
+                const ticketsSold = Object.keys(lottery.tickets).length;
+                const uniquePlayers = lottery.players.size;
                 const pot = lottery.pot;
                 
                 let timeLeft = null;
+                let status = lottery.status;
+                
                 if (lottery.startTime) {
                     const elapsed = Date.now() - lottery.startTime;
-                    timeLeft = Math.max(0, lottery.timer - elapsed);
+                    timeLeft = Math.max(0, lottery.drawTime - elapsed);
+                    
+                    if (timeLeft <= 0) {
+                        status = 'drawing';
+                        timeLeft = 0;
+                    }
                 }
                 
                 return {
                     tier: tier,
                     price: LOTTO_CONFIG.tiers[tier].price,
-                    ticketsSold: tickets,
-                    available: 100 - tickets,
-                    players: players,
+                    ticketsSold: ticketsSold,
+                    available: 100 - ticketsSold,
+                    players: uniquePlayers,
                     pot: pot,
-                    status: players >= LOTTO_CONFIG.minPlayers ? 'active' : 'waiting',
+                    status: status,
                     timeLeft: timeLeft,
-                    startTime: lottery.startTime
+                    startTime: lottery.startTime,
+                    drawTime: lottery.drawTime
                 };
             },
             
@@ -898,38 +963,28 @@
                 const user = this.state.users[username];
                 if (!user) return [];
                 
-                return user.tickets.purchased
+                return user.tickets
                     .filter(t => t.tier === tier)
                     .map(t => t.ticket);
             },
             
-            // Update active games list
-            updateActiveGames() {
-                const now = Date.now();
-                this.state.activeGames = this.state.activeGames.filter(game => {
-                    return game.endTime > now;
-                });
-                
-                // Check for finished games
-                for (let tier = 1; tier <= 4; tier++) {
-                    const lottery = this.state.lotteries[tier];
-                    if (lottery.startTime && (Date.now() - lottery.startTime) >= lottery.timer) {
-                        this.drawWinner(tier);
-                    }
-                }
-                
-                this.saveState();
+            // Get user's total tickets
+            getUserTotalTickets(username) {
+                const user = this.state.users[username];
+                if (!user) return 0;
+                return user.tickets.length;
             },
             
             // Draw winner for a tier
             drawWinner(tier) {
+                console.log(`Drawing winner for tier ${tier}`);
                 const lottery = this.state.lotteries[tier];
                 const tickets = Object.entries(lottery.tickets);
                 
-                if (tickets.length === 0 || lottery.players.size < LOTTO_CONFIG.minPlayers) {
-                    // Reset if not enough players
+                if (tickets.length === 0) {
+                    console.log('No tickets to draw from');
                     this.resetLottery(tier);
-                    return;
+                    return null;
                 }
                 
                 // Random winner
@@ -937,25 +992,32 @@
                 const [winningTicket, winnerUsername] = tickets[randomIndex];
                 const winner = this.state.users[winnerUsername];
                 
+                console.log(`Winner: ${winnerUsername} with ticket ${winningTicket}`);
+                
                 // Record history
                 const historyEntry = {
                     tier: tier,
-                    date: new Date().toISOString(),
-                    winner: winner.displayName,
+                    date: Date.now(),
+                    winner: winner ? winner.displayName : winnerUsername,
                     winningTicket: parseInt(winningTicket),
                     pot: lottery.pot,
-                    players: Array.from(lottery.players)
+                    players: Array.from(lottery.players),
+                    participants: tickets.length
                 };
                 
+                // Add to history
+                if (!this.state.history) this.state.history = [];
                 this.state.history.unshift(historyEntry);
                 if (this.state.history.length > 50) this.state.history = this.state.history.slice(0, 50);
                 
                 // Update winner stats
-                winner.stats.gamesPlayed += 1;
-                winner.stats.gamesWon += 1;
-                winner.stats.totalWon += lottery.pot;
+                if (winner) {
+                    winner.stats.gamesPlayed += 1;
+                    winner.stats.gamesWon += 1;
+                    winner.stats.totalWon += lottery.pot;
+                }
                 
-                // Update losers stats
+                // Update loser stats
                 lottery.players.forEach(playerUsername => {
                     if (playerUsername !== winnerUsername) {
                         const player = this.state.users[playerUsername];
@@ -968,45 +1030,57 @@
                 
                 // Reset lottery
                 this.resetLottery(tier);
-                this.saveState();
+                this.save();
                 
                 return historyEntry;
             },
             
-            // Reset lottery for next round
+            // Reset lottery
             resetLottery(tier) {
-                this.state.lotteries[tier] = {
-                    tickets: {},
-                    players: new Set(),
-                    startTime: null,
-                    timer: null,
-                    pot: 0
-                };
-                this.saveState();
+                console.log(`Resetting lottery for tier ${tier}`);
+                this.state.lotteries[tier] = GameState.initTierState(tier);
+                this.save();
             },
             
-            // Get active games for display
+            // Get active games
             getActiveGames() {
-                return this.state.activeGames.map(game => {
-                    const timeLeft = game.endTime - Date.now();
-                    const minutes = Math.floor(timeLeft / 60000);
-                    const seconds = Math.floor((timeLeft % 60000) / 1000);
-                    
-                    return {
-                        tier: game.tier,
-                        name: `Tier ${game.tier} Lotto`,
-                        players: game.players.length,
-                        pot: game.pot,
-                        timeLeft: timeLeft > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : 'Drawing...'
-                    };
-                });
+                const games = [];
+                
+                for (let tier = 1; tier <= 4; tier++) {
+                    const lottery = this.state.lotteries[tier];
+                    if (lottery && lottery.players && lottery.players.size >= LOTTO_CONFIG.minPlayers && lottery.startTime) {
+                        const timeLeft = Math.max(0, lottery.drawTime - (Date.now() - lottery.startTime));
+                        const minutes = Math.floor(timeLeft / 60000);
+                        const seconds = Math.floor((timeLeft % 60000) / 1000);
+                        
+                        games.push({
+                            tier: tier,
+                            name: `Tier ${tier} Lotto`,
+                            players: lottery.players.size,
+                            pot: lottery.pot,
+                            timeLeft: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+                            timeLeftMs: timeLeft
+                        });
+                    }
+                }
+                
+                return games.sort((a, b) => a.timeLeftMs - b.timeLeftMs);
             },
             
             // Get recent draws
             getRecentDraws() {
+                if (!this.state.history) return [];
                 return this.state.history.slice(0, 10);
+            },
+            
+            // Get total users online
+            getOnlineCount() {
+                return Object.keys(this.state.users).length;
             }
         };
+
+        // Initialize game
+        LottoGame.init();
 
         // ============================================
         // MAIN APPLICATION
@@ -1015,34 +1089,33 @@
         const TWSApp = {
             currentUser: null,
             currentTier: 1,
-            selectedTickets: [],
-            countdownInterval: null,
+            selectedTicket: null,
+            refreshInterval: null,
             
             // Initialize
             init() {
                 this.setupEventListeners();
                 this.generateTicketBoard();
                 this.updateTierInfo();
-                this.startCountdownTimer();
+                this.startAutoRefresh();
                 
                 // Check if user is logged in
-                const savedUser = localStorage.getItem('tws_current_user');
+                const savedUser = localStorage.getItem('tws_current_user_fixed');
                 if (savedUser) {
                     this.currentUser = JSON.parse(savedUser);
                     this.updateUserControls();
                     this.hideLoginModal();
-                    this.loadUserTickets();
                 } else {
                     this.showLoginModal();
                 }
                 
-                // Update active games
+                // Update displays
                 this.updateActiveGames();
                 this.updateRecentDraws();
                 
                 // Update connection status
                 document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Ready';
-                document.getElementById('onlineCount').textContent = Object.keys(GameManager.state.users).length || '1';
+                document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
             },
             
             // Setup event listeners
@@ -1053,7 +1126,7 @@
                         document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
                         e.target.classList.add('active');
                         this.currentTier = parseInt(e.target.dataset.tier);
-                        this.selectedTickets = [];
+                        this.selectedTicket = null;
                         this.updateTierInfo();
                         this.generateTicketBoard();
                         this.updateBuyButton();
@@ -1062,20 +1135,20 @@
                 
                 // Buy button
                 document.getElementById('buyButton').addEventListener('click', () => {
-                    this.buySelectedTickets();
+                    this.buySelectedTicket();
                 });
             },
             
-            // Generate ticket board for current tier
+            // Generate ticket board
             generateTicketBoard() {
                 const board = document.getElementById('ticketBoard');
                 if (!board) return;
                 
                 board.innerHTML = '';
                 
-                // Get lottery info
-                const info = GameManager.getLotteryInfo(this.currentTier);
-                const userTickets = this.currentUser ? GameManager.getUserTickets(this.currentUser.username, this.currentTier) : [];
+                const info = LottoGame.getLotteryInfo(this.currentTier);
+                const userTickets = this.currentUser ? LottoGame.getUserTickets(this.currentUser.username, this.currentTier) : [];
+                const lottery = LottoGame.state.lotteries[this.currentTier];
                 
                 for (let i = 1; i <= 100; i++) {
                     const ticket = document.createElement('div');
@@ -1084,11 +1157,10 @@
                     ticket.dataset.ticketId = i;
                     
                     // Check if ticket is purchased
-                    const lottery = GameManager.state.lotteries[this.currentTier];
-                    if (lottery.tickets[i]) {
+                    if (lottery && lottery.tickets && lottery.tickets[i]) {
                         ticket.classList.remove('available');
                         ticket.classList.add('purchased');
-                        const owner = GameManager.state.users[lottery.tickets[i]];
+                        const owner = LottoGame.state.users[lottery.tickets[i]];
                         ticket.setAttribute('data-owner', owner?.displayName || 'Unknown');
                         
                         // Check if it's user's ticket
@@ -1098,13 +1170,13 @@
                     }
                     
                     // Check if selected
-                    if (this.selectedTickets.includes(i)) {
+                    if (this.selectedTicket === i) {
                         ticket.classList.add('selected');
                     }
                     
                     // Add click handler for available tickets
-                    if (!lottery.tickets[i]) {
-                        ticket.addEventListener('click', () => this.toggleTicketSelection(i));
+                    if (!lottery || !lottery.tickets || !lottery.tickets[i]) {
+                        ticket.addEventListener('click', () => this.selectTicket(i));
                     }
                     
                     board.appendChild(ticket);
@@ -1114,112 +1186,80 @@
                 document.getElementById('tierPriceDisplay').textContent = `$${LOTTO_CONFIG.tiers[this.currentTier].price} per ticket`;
             },
             
-            // Toggle ticket selection
-            toggleTicketSelection(ticketId) {
+            // Select a SINGLE ticket
+            selectTicket(ticketId) {
                 if (!this.currentUser) {
                     this.showLoginModal();
                     return;
                 }
                 
-                const index = this.selectedTickets.indexOf(ticketId);
-                if (index === -1) {
-                    // Check ticket limit
-                    const userTotalTickets = this.currentUser.tickets?.total || 0;
-                    if (userTotalTickets + this.selectedTickets.length >= LOTTO_CONFIG.maxTicketsPerPlayer) {
-                        this.showAlert(`Maximum ${LOTTO_CONFIG.maxTicketsPerPlayer} tickets reached!`, 'error');
-                        return;
-                    }
-                    this.selectedTickets.push(ticketId);
+                // Deselect previous ticket if any
+                if (this.selectedTicket === ticketId) {
+                    this.selectedTicket = null;
                 } else {
-                    this.selectedTickets.splice(index, 1);
+                    this.selectedTicket = ticketId;
                 }
                 
-                this.updateSelectedTicketsDisplay();
                 this.updateBuyButton();
                 this.generateTicketBoard(); // Refresh to show selection
             },
             
-            // Update selected tickets display
-            updateSelectedTicketsDisplay() {
-                const count = this.selectedTickets.length;
-                const price = LOTTO_CONFIG.tiers[this.currentTier].price;
-                const total = count * price;
-                
-                document.getElementById('selectedTicketsCount').textContent = 
-                    `${count} ticket${count !== 1 ? 's' : ''} selected - Total: $${total}`;
-            },
-            
-            // Update buy button state
+            // Update buy button
             updateBuyButton() {
                 const buyButton = document.getElementById('buyButton');
-                buyButton.disabled = this.selectedTickets.length === 0;
                 
-                if (this.selectedTickets.length > 0) {
+                if (this.selectedTicket) {
                     const price = LOTTO_CONFIG.tiers[this.currentTier].price;
-                    const total = this.selectedTickets.length * price;
-                    buyButton.innerHTML = `<i class="fas fa-shopping-cart"></i> Buy ${this.selectedTickets.length} Ticket${this.selectedTickets.length !== 1 ? 's' : ''} - $${total}`;
+                    buyButton.disabled = false;
+                    buyButton.innerHTML = `<i class="fas fa-shopping-cart"></i> Buy Ticket #${this.selectedTicket} - $${price}`;
+                    document.getElementById('selectedTicketsCount').textContent = `Selected: Ticket #${this.selectedTicket} - $${price}`;
                 } else {
-                    buyButton.innerHTML = `<i class="fas fa-shopping-cart"></i> Buy Selected Ticket(s)`;
+                    buyButton.disabled = true;
+                    buyButton.innerHTML = `<i class="fas fa-shopping-cart"></i> Buy Selected Ticket`;
+                    document.getElementById('selectedTicketsCount').textContent = 'Select a ticket to buy';
                 }
             },
             
-            // Buy selected tickets
-            buySelectedTickets() {
-                if (!this.currentUser || this.selectedTickets.length === 0) return;
+            // Buy selected ticket
+            buySelectedTicket() {
+                if (!this.currentUser || !this.selectedTicket) return;
                 
-                const price = LOTTO_CONFIG.tiers[this.currentTier].price;
-                const total = this.selectedTickets.length * price;
+                const result = LottoGame.buyTicket(
+                    this.currentUser.username,
+                    this.currentTier,
+                    this.selectedTicket
+                );
                 
-                // Purchase each ticket
-                let successCount = 0;
-                this.selectedTickets.forEach(ticketId => {
-                    const result = GameManager.purchaseTicket(
-                        this.currentUser.username,
-                        this.currentTier,
-                        ticketId
-                    );
-                    
-                    if (result.success) {
-                        successCount++;
-                    } else {
-                        this.showAlert(`Failed to buy ticket ${ticketId}: ${result.message}`, 'error');
-                    }
-                });
-                
-                if (successCount > 0) {
-                    this.showAlert(`Successfully purchased ${successCount} ticket${successCount !== 1 ? 's' : ''} for $${successCount * price}!`, 'success');
+                if (result.success) {
+                    this.showAlert(`Ticket #${this.selectedTicket} purchased for $${LOTTO_CONFIG.tiers[this.currentTier].price}!`, 'success');
                     
                     // Refresh user data
-                    const userResult = GameManager.loginUser(this.currentUser.username, this.currentUser.password);
+                    const userResult = LottoGame.login(this.currentUser.username, this.currentUser.password);
                     if (userResult.success) {
                         this.currentUser = userResult.user;
-                        localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
+                        localStorage.setItem('tws_current_user_fixed', JSON.stringify(this.currentUser));
                         this.updateUserControls();
                     }
                     
                     // Clear selection and refresh
-                    this.selectedTickets = [];
-                    this.updateSelectedTicketsDisplay();
+                    this.selectedTicket = null;
                     this.updateBuyButton();
                     this.updateTierInfo();
                     this.generateTicketBoard();
                     this.updateActiveGames();
+                    
+                    // Update online count
+                    document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
+                } else {
+                    this.showAlert(result.message, 'error');
                 }
             },
             
-            // Load user's tickets
-            loadUserTickets() {
-                if (!this.currentUser) return;
-                
-                // Update tier info
-                this.updateTierInfo();
-            },
-            
-            // Update tier info display
+            // Update tier info
             updateTierInfo() {
                 const tier = this.currentTier;
                 const price = LOTTO_CONFIG.tiers[tier].price;
-                const info = GameManager.getLotteryInfo(tier);
+                const info = LottoGame.getLotteryInfo(tier);
                 
                 document.getElementById('currentTierName').textContent = `Tier ${tier}: $${price} per ticket`;
                 document.getElementById('ticketsSold').textContent = info.ticketsSold;
@@ -1228,16 +1268,22 @@
                 
                 // Update your tickets count
                 const yourTickets = this.currentUser ? 
-                    GameManager.getUserTickets(this.currentUser.username, tier).length : 0;
+                    LottoGame.getUserTickets(this.currentUser.username, tier).length : 0;
                 document.getElementById('yourTickets').textContent = yourTickets;
+                
+                // Update timer
+                this.updateTimer();
                 
                 // Update status
                 const statusEl = document.getElementById('gameStatus');
                 if (info.status === 'active') {
                     statusEl.textContent = 'Game Active - Timer Running';
                     statusEl.className = 'status-badge status-active';
+                } else if (info.status === 'drawing') {
+                    statusEl.textContent = 'Drawing Winner...';
+                    statusEl.className = 'status-badge status-in-progress';
                 } else {
-                    statusEl.textContent = 'Waiting for players (2+ needed)';
+                    statusEl.textContent = `Waiting for players (${Math.max(0, LOTTO_CONFIG.minPlayers - info.players)} more needed)`;
                     statusEl.className = 'status-badge status-waiting';
                 }
                 
@@ -1245,23 +1291,43 @@
                 this.updatePlayersList();
             },
             
+            // Update timer
+            updateTimer() {
+                const info = LottoGame.getLotteryInfo(this.currentTier);
+                const timerEl = document.getElementById('countdownTimer');
+                
+                if (info.timeLeft !== null && info.timeLeft > 0) {
+                    const minutes = Math.floor(info.timeLeft / 60000);
+                    const seconds = Math.floor((info.timeLeft % 60000) / 1000);
+                    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Check if timer reached 0
+                    if (info.timeLeft <= 1000) { // 1 second threshold
+                        setTimeout(() => {
+                            this.refreshAll();
+                        }, 1100);
+                    }
+                } else {
+                    timerEl.textContent = '30:00';
+                }
+            },
+            
             // Update players list
             updatePlayersList() {
                 const list = document.getElementById('playersInTier');
-                const lottery = GameManager.state.lotteries[this.currentTier];
+                const lottery = LottoGame.state.lotteries[this.currentTier];
                 
-                if (lottery.players.size === 0) {
+                if (!lottery || !lottery.players || lottery.players.size === 0) {
                     list.innerHTML = '<p>No players yet. Be the first!</p>';
                     return;
                 }
                 
                 let html = '';
                 lottery.players.forEach(username => {
-                    const user = GameManager.state.users[username];
+                    const user = LottoGame.state.users[username];
                     if (user) {
                         // Count tickets for this user in this tier
-                        const ticketCount = Object.values(lottery.tickets)
-                            .filter(owner => owner === username).length;
+                        const ticketCount = user.tickets.filter(t => t.tier === this.currentTier).length;
                         
                         html += `
                             <div class="player-item">
@@ -1282,39 +1348,29 @@
                 list.innerHTML = html;
             },
             
-            // Start countdown timer
-            startCountdownTimer() {
-                if (this.countdownInterval) {
-                    clearInterval(this.countdownInterval);
+            // Start auto-refresh
+            startAutoRefresh() {
+                if (this.refreshInterval) {
+                    clearInterval(this.refreshInterval);
                 }
                 
-                this.countdownInterval = setInterval(() => {
-                    this.updateCountdown();
-                    GameManager.updateActiveGames();
-                    this.updateActiveGames();
-                }, 1000);
-                
-                this.updateCountdown();
+                this.refreshInterval = setInterval(() => {
+                    this.refreshAll();
+                }, 1000); // Update every second
             },
             
-            // Update countdown display
-            updateCountdown() {
-                const info = GameManager.getLotteryInfo(this.currentTier);
-                const timerEl = document.getElementById('countdownTimer');
-                
-                if (info.timeLeft !== null && info.timeLeft > 0) {
-                    const minutes = Math.floor(info.timeLeft / 60000);
-                    const seconds = Math.floor((info.timeLeft % 60000) / 1000);
-                    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                } else {
-                    timerEl.textContent = '30:00';
-                }
+            // Refresh all displays
+            refreshAll() {
+                this.updateTimer();
+                this.updateActiveGames();
+                this.updateTierInfo();
+                this.updateUserStats();
             },
             
-            // Update active games list
+            // Update active games
             updateActiveGames() {
                 const list = document.getElementById('activeGamesList');
-                const games = GameManager.getActiveGames();
+                const games = LottoGame.getActiveGames();
                 
                 if (games.length === 0) {
                     list.innerHTML = '<p>No active games yet.</p>';
@@ -1342,7 +1398,7 @@
             // Update recent draws
             updateRecentDraws() {
                 const list = document.getElementById('recentDraws');
-                const draws = GameManager.getRecentDraws();
+                const draws = LottoGame.getRecentDraws();
                 
                 if (draws.length === 0) {
                     list.innerHTML = '<p>No recent draws.</p>';
@@ -1351,12 +1407,13 @@
                 
                 let html = '';
                 draws.forEach(draw => {
+                    const date = new Date(draw.date);
                     html += `
                         <div class="history-item win">
                             <div><strong>Tier ${draw.tier}: ${draw.winner}</strong></div>
                             <div>Won $${draw.pot} with ticket #${draw.winningTicket}</div>
                             <div style="color: rgba(255,255,255,0.6); font-size: 0.8rem;">
-                                ${new Date(draw.date).toLocaleDateString()} • ${draw.players.length} players
+                                ${date.toLocaleDateString()} • ${draw.participants || draw.players.length} tickets
                             </div>
                         </div>
                     `;
@@ -1365,105 +1422,22 @@
                 list.innerHTML = html;
             },
             
-            // Register user
-            register() {
-                const username = document.getElementById('username').value.trim();
-                const password = document.getElementById('password').value.trim();
-                const displayName = document.getElementById('displayName').value.trim();
-                
-                if (!username || !password || !displayName) {
-                    this.showAlert('Please fill in all fields', 'warning');
-                    return;
-                }
-                
-                if (displayName.length < 3) {
-                    this.showAlert('Display name must be at least 3 characters', 'warning');
-                    return;
-                }
-                
-                const result = GameManager.registerUser(username, password, displayName);
-                
-                if (result.success) {
-                    this.currentUser = result.user;
-                    localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
-                    this.updateUserControls();
-                    this.hideLoginModal();
-                    this.showAlert(`Welcome ${displayName}! You can now buy tickets.`, 'success');
-                    this.loadUserTickets();
-                    document.getElementById('onlineCount').textContent = Object.keys(GameManager.state.users).length;
-                } else {
-                    this.showAlert(result.message, 'error');
-                }
-            },
-            
-            // Login user
-            login() {
-                const username = document.getElementById('loginUsername').value.trim();
-                const password = document.getElementById('loginPassword').value.trim();
-                
-                if (!username || !password) {
-                    this.showAlert('Please enter username and password', 'warning');
-                    return;
-                }
-                
-                const result = GameManager.loginUser(username, password);
-                
-                if (result.success) {
-                    this.currentUser = result.user;
-                    localStorage.setItem('tws_current_user', JSON.stringify(this.currentUser));
-                    this.updateUserControls();
-                    this.hideLoginModal();
-                    this.showAlert(`Welcome back ${this.currentUser.displayName}!`, 'success');
-                    this.loadUserTickets();
-                } else {
-                    this.showAlert(result.message, 'error');
-                }
-            },
-            
-            // Update user controls in header
-            updateUserControls() {
-                const userControls = document.getElementById('userControls');
-                
-                if (this.currentUser) {
-                    userControls.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="text-align: right;">
-                                <div style="color: var(--gold); font-weight: bold; font-size: 1.1rem;">
-                                    <i class="fas fa-user"></i> ${this.currentUser.displayName}
-                                </div>
-                                <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
-                                    Tickets: ${this.currentUser.tickets.total}/50
-                                </div>
-                            </div>
-                            <button class="btn btn-primary" onclick="TWSApp.logout()" style="padding: 0.5rem 1rem;">
-                                <i class="fas fa-sign-out-alt"></i>
-                            </button>
-                        </div>
-                    `;
-                    
-                    // Update user stats in sidebar
-                    this.updateUserStats();
-                } else {
-                    userControls.innerHTML = `
-                        <button class="btn btn-gold" onclick="TWSApp.showLoginModal()">
-                            <i class="fas fa-sign-in-alt"></i> Login / Register
-                        </button>
-                    `;
-                }
-            },
-            
-            // Update user stats in sidebar
+            // Update user stats
             updateUserStats() {
                 const userStats = document.getElementById('userStats');
-                if (!this.currentUser || !userStats) return;
+                if (!this.currentUser || !userStats) {
+                    userStats.innerHTML = '<p>Please log in to see your stats.</p>';
+                    return;
+                }
                 
                 const stats = this.currentUser.stats;
+                const totalTickets = LottoGame.getUserTotalTickets(this.currentUser.username);
                 const net = stats.totalWon - stats.totalLost;
                 
                 userStats.innerHTML = `
                     <div class="stat-box">
                         <div class="stat-label">Total Tickets</div>
-                        <div class="stat-value">${this.currentUser.tickets.total}/50</div>
+                        <div class="stat-value">${totalTickets}/50</div>
                     </div>
                     <div class="stat-box mt-2">
                         <div class="stat-label">Games Played</div>
@@ -1480,6 +1454,93 @@
                         </div>
                     </div>
                 `;
+            },
+            
+            // Register
+            register() {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                const displayName = document.getElementById('displayName').value.trim();
+                
+                if (!username || !password || !displayName) {
+                    this.showAlert('Please fill in all fields', 'warning');
+                    return;
+                }
+                
+                if (displayName.length < 3) {
+                    this.showAlert('Display name must be at least 3 characters', 'warning');
+                    return;
+                }
+                
+                const result = LottoGame.register(username, password, displayName);
+                
+                if (result.success) {
+                    this.currentUser = result.user;
+                    localStorage.setItem('tws_current_user_fixed', JSON.stringify(this.currentUser));
+                    this.updateUserControls();
+                    this.hideLoginModal();
+                    this.showAlert(`Welcome ${displayName}! You can now buy tickets.`, 'success');
+                    this.updateUserStats();
+                    document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
+                } else {
+                    this.showAlert(result.message, 'error');
+                }
+            },
+            
+            // Login
+            login() {
+                const username = document.getElementById('loginUsername').value.trim();
+                const password = document.getElementById('loginPassword').value.trim();
+                
+                if (!username || !password) {
+                    this.showAlert('Please enter username and password', 'warning');
+                    return;
+                }
+                
+                const result = LottoGame.login(username, password);
+                
+                if (result.success) {
+                    this.currentUser = result.user;
+                    localStorage.setItem('tws_current_user_fixed', JSON.stringify(this.currentUser));
+                    this.updateUserControls();
+                    this.hideLoginModal();
+                    this.showAlert(`Welcome back ${this.currentUser.displayName}!`, 'success');
+                    this.updateUserStats();
+                } else {
+                    this.showAlert(result.message, 'error');
+                }
+            },
+            
+            // Update user controls
+            updateUserControls() {
+                const userControls = document.getElementById('userControls');
+                
+                if (this.currentUser) {
+                    const totalTickets = LottoGame.getUserTotalTickets(this.currentUser.username);
+                    userControls.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="text-align: right;">
+                                <div style="color: var(--gold); font-weight: bold; font-size: 1.1rem;">
+                                    <i class="fas fa-user"></i> ${this.currentUser.displayName}
+                                </div>
+                                <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
+                                    Tickets: ${totalTickets}/50
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" onclick="TWSApp.logout()" style="padding: 0.5rem 1rem;">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    
+                    this.updateUserStats();
+                } else {
+                    userControls.innerHTML = `
+                        <button class="btn btn-gold" onclick="TWSApp.showLoginModal()">
+                            <i class="fas fa-sign-in-alt"></i> Login / Register
+                        </button>
+                    `;
+                }
             },
             
             // Show/hide login modal
@@ -1525,12 +1586,11 @@
             // Logout
             logout() {
                 this.currentUser = null;
-                localStorage.removeItem('tws_current_user');
+                localStorage.removeItem('tws_current_user_fixed');
                 this.updateUserControls();
                 this.showAlert('Logged out successfully', 'info');
                 this.showLoginModal();
-                this.selectedTickets = [];
-                this.updateSelectedTicketsDisplay();
+                this.selectedTicket = null;
                 this.updateBuyButton();
                 this.generateTicketBoard();
             }
@@ -1540,7 +1600,6 @@
         // GLOBAL FUNCTIONS
         // ============================================
         
-        // Switch between register/login forms
         function showForm(formType) {
             const registerForm = document.getElementById('registerForm');
             const loginForm = document.getElementById('loginForm');
@@ -1564,17 +1623,15 @@
             }
         }
         
-        // Register function
         function register() {
             TWSApp.register();
         }
         
-        // Login function
         function login() {
             TWSApp.login();
         }
         
-        // Initialize app when page loads
+        // Initialize app
         document.addEventListener('DOMContentLoaded', () => {
             TWSApp.init();
         });
