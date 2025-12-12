@@ -497,6 +497,33 @@
             animation: slideIn 0.3s ease;
         }
         
+        /* Sync indicator */
+        .sync-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 1000;
+            border: 1px solid var(--gold);
+        }
+        
+        .sync-indicator.syncing {
+            display: flex;
+            background: var(--in-progress);
+        }
+        
+        .sync-indicator.synced {
+            display: flex;
+            background: var(--available);
+        }
+        
         /* Utility */
         .text-center { text-align: center; }
         .text-success { color: var(--success); }
@@ -515,6 +542,12 @@
     </style>
 </head>
 <body>
+    <!-- Sync Indicator -->
+    <div id="syncIndicator" class="sync-indicator">
+        <i class="fas fa-sync-alt fa-spin"></i>
+        <span>Syncing...</span>
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div class="logo">
@@ -761,13 +794,13 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>TWS Lotto &copy; 2023 | That War Server Community | <span id="connectionStatus"><i class="fas fa-circle text-success"></i> Ready</span></p>
+        <p>TWS Lotto &copy; 2023 | That War Server Community | <span id="connectionStatus"><i class="fas fa-circle text-success"></i> Connected</span></p>
     </footer>
 
-    <!-- FIXED WORKING LOTTO GAME -->
+    <!-- FIXED VERSION WITH REAL-TIME SYNC -->
     <script>
         // ============================================
-        // ENHANCED LOTTO GAME WITH BUG FIXES
+        // FIXED LOTTO GAME WITH REAL-TIME SYNC
         // ============================================
         const LOTTO_CONFIG = {
             tiers: {
@@ -781,8 +814,11 @@
             totalTickets: 100
         };
 
-        // Enhanced Game State with proper synchronization
+        // Enhanced Game State with sync triggers
         const GameState = {
+            VERSION: '1.2',
+            SYNC_KEY: 'tws_lotto_sync',
+            
             load() {
                 try {
                     const saved = localStorage.getItem('tws_lotto_simple');
@@ -798,15 +834,7 @@
                                 if (!parsed.lotteries[tier].tickets) {
                                     parsed.lotteries[tier].tickets = {};
                                 }
-                                if (parsed.lotteries[tier].status === 'drawing') {
-                                    parsed.lotteries[tier].status = 'waiting';
-                                }
                             }
-                        }
-                        
-                        // Ensure history exists
-                        if (!parsed.history) {
-                            parsed.history = [];
                         }
                         
                         return parsed;
@@ -815,16 +843,16 @@
                     console.warn("Failed to load game state, resetting:", e);
                 }
                 
-                // Default state
                 return {
                     users: {},
                     lotteries: {},
                     history: [],
-                    lastUpdate: Date.now()
+                    lastSync: Date.now(),
+                    version: this.VERSION
                 };
             },
             
-            save(state) {
+            save(state, triggerSync = true) {
                 try {
                     const toSave = JSON.parse(JSON.stringify(state));
                     
@@ -834,14 +862,17 @@
                             if (toSave.lotteries[tier].players instanceof Set) {
                                 toSave.lotteries[tier].players = Array.from(toSave.lotteries[tier].players);
                             }
-                            if (!toSave.lotteries[tier].tickets) {
-                                toSave.lotteries[tier].tickets = {};
-                            }
                         }
                     }
                     
                     toSave.lastUpdate = Date.now();
                     localStorage.setItem('tws_lotto_simple', JSON.stringify(toSave));
+                    
+                    // Trigger sync event
+                    if (triggerSync) {
+                        localStorage.setItem(this.SYNC_KEY, Date.now().toString());
+                    }
+                    
                     return true;
                 } catch (e) {
                     console.error("Failed to save game state:", e);
@@ -856,70 +887,105 @@
                     pot: 0,
                     startTime: null,
                     drawTime: LOTTO_CONFIG.tiers[tier].drawTime,
-                    status: 'waiting',
-                    drawTimer: null
+                    status: 'waiting'
                 };
             }
         };
 
-        // Enhanced Game Logic with synchronization fixes
+        // Fixed Game Logic with proper sync
         const LottoGame = {
             state: GameState.load(),
-            activeTimers: new Map(),
+            lastSyncTime: 0,
+            syncInterval: null,
+            pendingSync: false,
             
             init() {
                 // Initialize all tiers
                 for (let tier = 1; tier <= 4; tier++) {
                     if (!this.state.lotteries[tier]) {
                         this.state.lotteries[tier] = GameState.initTierState(tier);
-                    } else {
-                        // Check for expired timers
-                        const lottery = this.state.lotteries[tier];
-                        if (lottery.startTime && lottery.status === 'active') {
-                            const elapsed = Date.now() - lottery.startTime;
-                            if (elapsed >= lottery.drawTime) {
-                                this.drawWinner(tier);
-                            } else {
-                                // Restart timer
-                                const timeLeft = lottery.drawTime - elapsed;
-                                this.setupDrawTimer(tier, timeLeft);
-                            }
-                        }
                     }
                 }
                 
-                // Clean up old timers
-                this.cleanupTimers();
-                this.save();
-                console.log("LottoGame initialized with state:", this.state);
+                this.save(false);
+                this.startSyncMonitor();
+                
+                console.log("LottoGame initialized");
+                return this.state;
             },
             
-            save() {
-                return GameState.save(this.state);
+            save(triggerSync = true) {
+                return GameState.save(this.state, triggerSync);
             },
             
-            setupDrawTimer(tier, timeLeft) {
-                // Clear existing timer for this tier
-                if (this.activeTimers.has(tier)) {
-                    clearTimeout(this.activeTimers.get(tier));
+            startSyncMonitor() {
+                // Listen for changes from other tabs
+                window.addEventListener('storage', (e) => {
+                    if (e.key === GameState.SYNC_KEY) {
+                        this.handleExternalChange();
+                    }
+                });
+                
+                // Poll for changes every 2 seconds
+                this.syncInterval = setInterval(() => {
+                    this.checkForUpdates();
+                }, 2000);
+            },
+            
+            handleExternalChange() {
+                if (this.pendingSync) return;
+                
+                this.pendingSync = true;
+                
+                // Show sync indicator
+                const indicator = document.getElementById('syncIndicator');
+                if (indicator) {
+                    indicator.className = 'sync-indicator syncing';
+                    indicator.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i><span>Syncing changes...</span>';
                 }
                 
-                // Set new timer
-                const timer = setTimeout(() => {
-                    this.drawWinner(tier);
-                }, timeLeft);
+                // Load latest state
+                const newState = GameState.load();
+                const oldState = this.state;
                 
-                this.activeTimers.set(tier, timer);
+                // Merge changes (simple approach - just reload)
+                this.state = newState;
+                
+                // Trigger UI updates
+                if (typeof TWSApp !== 'undefined') {
+                    TWSApp.refreshAll();
+                }
+                
+                // Hide sync indicator after 1.5 seconds
+                setTimeout(() => {
+                    if (indicator) {
+                        indicator.className = 'sync-indicator synced';
+                        indicator.innerHTML = '<i class="fas fa-check"></i><span>Synced!</span>';
+                        
+                        setTimeout(() => {
+                            indicator.className = 'sync-indicator';
+                        }, 1000);
+                    }
+                    this.pendingSync = false;
+                }, 1500);
+                
+                console.log("External changes synced");
             },
             
-            cleanupTimers() {
+            checkForUpdates() {
+                // Check if we need to sync (every 30 seconds)
+                if (Date.now() - this.lastSyncTime > 30000) {
+                    this.lastSyncTime = Date.now();
+                    localStorage.setItem(GameState.SYNC_KEY, Date.now().toString());
+                }
+                
+                // Check for expired timers
                 for (let tier = 1; tier <= 4; tier++) {
-                    if (!this.state.lotteries[tier] || 
-                        !this.state.lotteries[tier].startTime || 
-                        this.state.lotteries[tier].status !== 'active') {
-                        if (this.activeTimers.has(tier)) {
-                            clearTimeout(this.activeTimers.get(tier));
-                            this.activeTimers.delete(tier);
+                    const lottery = this.state.lotteries[tier];
+                    if (lottery && lottery.startTime && lottery.status === 'active') {
+                        const elapsed = Date.now() - lottery.startTime;
+                        if (elapsed >= lottery.drawTime) {
+                            this.drawWinner(tier);
                         }
                     }
                 }
@@ -928,14 +994,6 @@
             register(username, password, displayName) {
                 if (!username || !password || !displayName) {
                     return { success: false, message: 'All fields are required' };
-                }
-                
-                if (username.length < 3 || username.length > 20) {
-                    return { success: false, message: 'Username must be 3-20 characters' };
-                }
-                
-                if (password.length < 4) {
-                    return { success: false, message: 'Password must be at least 4 characters' };
                 }
                 
                 if (this.state.users[username]) {
@@ -965,9 +1023,7 @@
                 if (!user) return { success: false, message: 'User not found' };
                 if (user.password !== password) return { success: false, message: 'Wrong password' };
                 
-                // Return a clean copy without password
-                const { password: _, ...userWithoutPassword } = user;
-                return { success: true, user: userWithoutPassword };
+                return { success: true, user: user };
             },
             
             buyTicket(username, tier, ticketNumber) {
@@ -979,14 +1035,17 @@
                 }
                 const lottery = this.state.lotteries[tier];
                 
+                // Check max tickets
                 if (user.tickets.length >= LOTTO_CONFIG.maxTicketsPerPlayer) {
                     return { success: false, message: `Maximum ${LOTTO_CONFIG.maxTicketsPerPlayer} tickets reached` };
                 }
                 
+                // Check if ticket already purchased
                 if (lottery.tickets[ticketNumber]) {
                     return { success: false, message: 'Ticket already purchased' };
                 }
                 
+                // Validate ticket number
                 if (ticketNumber < 1 || ticketNumber > LOTTO_CONFIG.totalTickets) {
                     return { success: false, message: 'Invalid ticket number (1-100 only)' };
                 }
@@ -1006,8 +1065,6 @@
                 if (lottery.players.size >= LOTTO_CONFIG.minPlayers && lottery.status === 'waiting') {
                     lottery.startTime = Date.now();
                     lottery.status = 'active';
-                    
-                    this.setupDrawTimer(tier, lottery.drawTime);
                 }
                 
                 this.save();
@@ -1096,9 +1153,9 @@
                 
                 // Update player stats
                 if (winner) {
-                    winner.stats.gamesPlayed += 1;
-                    winner.stats.gamesWon += 1;
-                    winner.stats.totalWon += lottery.pot;
+                    winner.stats.gamesPlayed = (winner.stats.gamesPlayed || 0) + 1;
+                    winner.stats.gamesWon = (winner.stats.gamesWon || 0) + 1;
+                    winner.stats.totalWon = (winner.stats.totalWon || 0) + lottery.pot;
                 }
                 
                 // Update all other players' stats
@@ -1106,8 +1163,8 @@
                     if (playerUsername !== winnerUsername) {
                         const player = this.state.users[playerUsername];
                         if (player) {
-                            player.stats.gamesPlayed += 1;
-                            player.stats.totalLost += LOTTO_CONFIG.tiers[tier].price;
+                            player.stats.gamesPlayed = (player.stats.gamesPlayed || 0) + 1;
+                            player.stats.totalLost = (player.stats.totalLost || 0) + LOTTO_CONFIG.tiers[tier].price;
                         }
                     }
                 });
@@ -1116,22 +1173,16 @@
                 this.resetLottery(tier);
                 this.save();
                 
-                // Notify UI about the draw
+                // Show notification
                 if (typeof TWSApp !== 'undefined') {
                     TWSApp.showAlert(`${winner ? winner.displayName : winnerUsername} won $${lottery.pot} with ticket #${winningTicket}!`, 'success');
+                    TWSApp.updateRecentDraws();
                 }
                 
                 return historyEntry;
             },
             
             resetLottery(tier) {
-                // Clear timer
-                if (this.activeTimers.has(tier)) {
-                    clearTimeout(this.activeTimers.get(tier));
-                    this.activeTimers.delete(tier);
-                }
-                
-                // Reset state
                 this.state.lotteries[tier] = GameState.initTierState(tier);
                 this.save();
             },
@@ -1187,27 +1238,29 @@
         LottoGame.init();
 
         // ============================================
-        // MAIN APPLICATION WITH FIXED SYNCHRONIZATION
+        // FIXED APPLICATION WITH REAL-TIME SYNC
         // ============================================
         const TWSApp = {
             currentUser: null,
             currentTier: 1,
             selectedTicket: null,
             refreshInterval: null,
-            lastRefresh: Date.now(),
+            lastUpdate: Date.now(),
+            syncCheckInterval: null,
             
             init() {
                 this.setupEventListeners();
                 this.generateTicketBoard();
                 this.updateTierInfo();
                 this.startAutoRefresh();
+                this.startSyncChecker();
                 
                 // Load saved user
                 try {
                     const savedUser = localStorage.getItem('tws_current_user_simple');
                     if (savedUser) {
                         const parsedUser = JSON.parse(savedUser);
-                        // Verify user still exists in game state
+                        // Verify user exists
                         if (LottoGame.state.users[parsedUser.username]) {
                             this.currentUser = parsedUser;
                         }
@@ -1224,15 +1277,78 @@
                 document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Connected';
                 document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
                 
-                // Add global refresh handler
-                window.addEventListener('storage', (e) => {
-                    if (e.key === 'tws_lotto_simple') {
-                        this.showAlert('Game state updated from another tab', 'info');
-                        this.refreshAll();
-                    }
-                });
+                // Add storage event listener for sync
+                window.addEventListener('storage', this.handleStorageEvent.bind(this));
                 
-                console.log("TWSApp initialized");
+                console.log("TWSApp initialized with real-time sync");
+            },
+            
+            handleStorageEvent(e) {
+                if (e.key === GameState.SYNC_KEY && e.newValue) {
+                    // Don't trigger on our own changes
+                    if (Date.now() - parseInt(e.newValue) > 100) {
+                        this.showSyncIndicator();
+                        setTimeout(() => {
+                            this.forceRefresh();
+                            this.hideSyncIndicator();
+                        }, 500);
+                    }
+                }
+            },
+            
+            showSyncIndicator() {
+                const indicator = document.getElementById('syncIndicator');
+                if (indicator) {
+                    indicator.className = 'sync-indicator syncing';
+                    indicator.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i><span>Syncing changes...</span>';
+                }
+            },
+            
+            hideSyncIndicator() {
+                const indicator = document.getElementById('syncIndicator');
+                if (indicator) {
+                    indicator.className = 'sync-indicator synced';
+                    indicator.innerHTML = '<i class="fas fa-check"></i><span>Synced!</span>';
+                    
+                    setTimeout(() => {
+                        indicator.className = 'sync-indicator';
+                    }, 1500);
+                }
+            },
+            
+            startSyncChecker() {
+                // Check for updates every 3 seconds
+                this.syncCheckInterval = setInterval(() => {
+                    this.checkForExternalUpdates();
+                }, 3000);
+            },
+            
+            checkForExternalUpdates() {
+                // This is a fallback in case storage events don't fire
+                const lastSync = localStorage.getItem(GameState.SYNC_KEY);
+                if (lastSync && parseInt(lastSync) > this.lastUpdate) {
+                    this.forceRefresh();
+                    this.lastUpdate = Date.now();
+                }
+            },
+            
+            forceRefresh() {
+                console.log("Force refreshing UI from external changes");
+                
+                // Reload game state
+                LottoGame.state = GameState.load();
+                
+                // Refresh all UI elements
+                this.generateTicketBoard();
+                this.updateTierInfo();
+                this.updateActiveGames();
+                this.updateRecentDraws();
+                this.updateUserStats();
+                this.updatePlayersList();
+                
+                // Update connection status
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Synced';
+                document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
             },
             
             setupEventListeners() {
@@ -1250,16 +1366,22 @@
                 });
                 
                 // Buy button
-                document.getElementById('buyButton').addEventListener('click', () => {
-                    this.buySelectedTicket();
-                });
+                const buyButton = document.getElementById('buyButton');
+                if (buyButton) {
+                    buyButton.addEventListener('click', () => {
+                        this.buySelectedTicket();
+                    });
+                }
                 
-                // Modal close on background click
-                document.getElementById('loginModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'loginModal') {
-                        this.hideLoginModal();
-                    }
-                });
+                // Modal close
+                const modal = document.getElementById('loginModal');
+                if (modal) {
+                    modal.addEventListener('click', (e) => {
+                        if (e.target.id === 'loginModal') {
+                            this.hideLoginModal();
+                        }
+                    });
+                }
             },
             
             generateTicketBoard() {
@@ -1273,28 +1395,24 @@
                 
                 for (let i = 1; i <= LOTTO_CONFIG.totalTickets; i++) {
                     const ticket = document.createElement('div');
-                    ticket.className = 'ticket available';
+                    ticket.className = 'ticket';
                     ticket.textContent = i;
                     ticket.dataset.ticketId = i;
-                    ticket.title = `Ticket #${i} - Click to select`;
                     
                     if (ticketOwners[i]) {
-                        ticket.classList.remove('available');
                         ticket.classList.add('purchased');
                         const owner = LottoGame.state.users[ticketOwners[i]];
-                        ticket.setAttribute('data-owner', owner?.displayName || 'Unknown');
+                        ticket.setAttribute('data-owner', owner?.displayName || ticketOwners[i]);
                         
                         if (this.currentUser && ticketOwners[i] === this.currentUser.username) {
                             ticket.classList.add('yours');
-                            ticket.title = `Your ticket #${i}`;
-                        } else {
-                            ticket.title = `Ticket #${i} - Owned by ${owner?.displayName || 'Unknown'}`;
                         }
+                    } else {
+                        ticket.classList.add('available');
                     }
                     
                     if (this.selectedTicket === i) {
                         ticket.classList.add('selected');
-                        ticket.title = `Selected ticket #${i} - Click Buy to purchase`;
                     }
                     
                     if (!ticketOwners[i]) {
@@ -1343,12 +1461,12 @@
                     return;
                 }
                 
-                // Prevent double clicking
                 const buyButton = document.getElementById('buyButton');
-                buyButton.disabled = true;
                 const originalText = buyButton.innerHTML;
+                buyButton.disabled = true;
                 buyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
                 
+                // Small delay to show processing
                 setTimeout(() => {
                     const result = LottoGame.buyTicket(
                         this.currentUser.username,
@@ -1359,7 +1477,7 @@
                     if (result.success) {
                         this.showAlert(`Ticket #${this.selectedTicket} purchased for $${result.ticket.price}!`, 'success');
                         
-                        // Refresh user data
+                        // Update user data
                         const loginResult = LottoGame.login(this.currentUser.username, this.currentUser.password);
                         if (loginResult.success) {
                             this.currentUser = loginResult.user;
@@ -1369,12 +1487,10 @@
                         
                         this.selectedTicket = null;
                         this.updateBuyButton();
-                        this.updateTierInfo();
-                        this.generateTicketBoard();
-                        this.updateActiveGames();
-                        this.updateUserStats();
+                        this.forceRefresh(); // Refresh everything
                         
-                        document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
+                        // Trigger sync for other tabs
+                        localStorage.setItem(GameState.SYNC_KEY, Date.now().toString());
                     } else {
                         this.showAlert(result.message, 'error');
                         buyButton.disabled = false;
@@ -1398,21 +1514,7 @@
                 document.getElementById('yourTickets').textContent = yourTickets;
                 
                 this.updateTimer();
-                
-                const statusEl = document.getElementById('gameStatus');
-                if (info.status === 'active') {
-                    statusEl.textContent = `Game Active - ${info.players} players - Timer Running`;
-                    statusEl.className = 'status-badge status-active';
-                } else if (info.status === 'drawing') {
-                    statusEl.textContent = 'Drawing Winner...';
-                    statusEl.className = 'status-badge status-in-progress';
-                } else {
-                    const needed = Math.max(0, LOTTO_CONFIG.minPlayers - info.players);
-                    statusEl.textContent = `Waiting for players (${needed} more needed)`;
-                    statusEl.className = 'status-badge status-waiting';
-                }
-                
-                this.updatePlayersList();
+                this.updateGameStatus();
             },
             
             updateTimer() {
@@ -1423,18 +1525,22 @@
                     const minutes = Math.floor(info.timeLeft / 60000);
                     const seconds = Math.floor((info.timeLeft % 60000) / 1000);
                     timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    
-                    // Color code based on time
-                    if (info.timeLeft < 60000) { // Less than 1 minute
-                        timerEl.style.color = 'var(--danger)';
-                    } else if (info.timeLeft < 300000) { // Less than 5 minutes
-                        timerEl.style.color = 'var(--warning)';
-                    } else {
-                        timerEl.style.color = 'var(--gold)';
-                    }
                 } else {
                     timerEl.textContent = '30:00';
-                    timerEl.style.color = 'var(--gold)';
+                }
+            },
+            
+            updateGameStatus() {
+                const info = LottoGame.getLotteryInfo(this.currentTier);
+                const statusEl = document.getElementById('gameStatus');
+                
+                if (info.status === 'active') {
+                    statusEl.textContent = `Game Active - ${info.players} players`;
+                    statusEl.className = 'status-badge status-active';
+                } else {
+                    const needed = Math.max(0, LOTTO_CONFIG.minPlayers - info.players);
+                    statusEl.textContent = `Waiting for players (${needed} more needed)`;
+                    statusEl.className = 'status-badge status-waiting';
                 }
             },
             
@@ -1450,15 +1556,6 @@
                 let html = '';
                 const playersArray = Array.from(lottery.players);
                 
-                // Sort by number of tickets
-                playersArray.sort((a, b) => {
-                    const userA = LottoGame.state.users[a];
-                    const userB = LottoGame.state.users[b];
-                    const ticketsA = userA ? userA.tickets.filter(t => t.tier === this.currentTier).length : 0;
-                    const ticketsB = userB ? userB.tickets.filter(t => t.tier === this.currentTier).length : 0;
-                    return ticketsB - ticketsA; // Descending
-                });
-                
                 playersArray.forEach(username => {
                     const user = LottoGame.state.users[username];
                     if (user) {
@@ -1466,7 +1563,7 @@
                         const isCurrentUser = this.currentUser && this.currentUser.username === username;
                         
                         html += `
-                            <div class="player-item ${isCurrentUser ? 'yours' : ''}" style="${isCurrentUser ? 'border-left: 4px solid var(--gold);' : ''}">
+                            <div class="player-item">
                                 <div>
                                     <strong>${user.displayName} ${isCurrentUser ? '(You)' : ''}</strong>
                                     <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem;">
@@ -1496,17 +1593,10 @@
             
             refreshAll() {
                 this.updateTimer();
+                this.updateGameStatus();
                 this.updateActiveGames();
-                this.updateTierInfo();
+                this.updatePlayersList();
                 this.updateUserStats();
-                this.updateRecentDraws();
-                
-                // Update connection status
-                const now = Date.now();
-                if (now - this.lastRefresh > 10000) {
-                    document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle text-success"></i> Connected';
-                }
-                this.lastRefresh = now;
             },
             
             updateActiveGames() {
@@ -1523,8 +1613,8 @@
                     html += `
                         <div class="active-game-item">
                             <div>
-                                <div class="active-game-tier">${game.name} - $${LOTTO_CONFIG.tiers[game.tier].price}</div>
-                                <div class="active-game-players">${game.players} player${game.players !== 1 ? 's' : ''} • Pot: $${game.pot}</div>
+                                <div class="active-game-tier">${game.name}</div>
+                                <div class="active-game-players">${game.players} players • Pot: $${game.pot}</div>
                             </div>
                             <div class="text-success">
                                 ${game.timeLeft}
@@ -1586,25 +1676,30 @@
                 const net = (stats.totalWon || 0) - (stats.totalLost || 0);
                 
                 userStats.innerHTML = `
-                    <div class="stat-box">
-                        <div class="stat-label">Total Tickets</div>
-                        <div class="stat-value">${totalTickets}/50</div>
-                    </div>
-                    <div class="stat-box mt-2">
-                        <div class="stat-label">Games Played</div>
-                        <div class="stat-value">${stats.gamesPlayed || 0}</div>
-                    </div>
-                    <div class="stat-box mt-2">
-                        <div class="stat-label">Games Won</div>
-                        <div class="stat-value">${stats.gamesWon || 0}</div>
-                    </div>
-                    <div class="stat-box mt-2">
-                        <div class="stat-label">Net Winnings</div>
-                        <div class="stat-value ${net >= 0 ? 'text-success' : 'text-danger'}">
-                            $${net}
+                    <div style="display: grid; gap: 0.75rem;">
+                        <div class="stat-box">
+                            <div class="stat-label">Total Tickets</div>
+                            <div class="stat-value">${totalTickets}/50</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Games Played</div>
+                            <div class="stat-value">${stats.gamesPlayed || 0}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Games Won</div>
+                            <div class="stat-value">${stats.gamesWon || 0}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Net Winnings</div>
+                            <div class="stat-value ${net >= 0 ? 'text-success' : 'text-danger'}">
+                                $${net}
+                            </div>
                         </div>
                     </div>
                 `;
+                
+                // Update ticket count in header
+                document.getElementById('userTicketCount').textContent = totalTickets;
             },
             
             updateAuthButtons() {
@@ -1645,33 +1740,19 @@
                     return;
                 }
                 
-                if (username.length < 3) {
-                    this.showAlert('Username must be at least 3 characters', 'warning');
-                    return;
-                }
-                
-                if (password.length < 4) {
-                    this.showAlert('Password must be at least 4 characters', 'warning');
-                    return;
-                }
-                
-                if (displayName.length < 3) {
-                    this.showAlert('Display name must be at least 3 characters', 'warning');
-                    return;
-                }
-                
                 const result = LottoGame.register(username, password, displayName);
                 
                 if (result.success) {
                     this.currentUser = result.user;
-                    // Don't store password in localStorage
-                    const { password: _, ...userWithoutPassword } = result.user;
-                    localStorage.setItem('tws_current_user_simple', JSON.stringify(userWithoutPassword));
+                    localStorage.setItem('tws_current_user_simple', JSON.stringify(this.currentUser));
                     this.updateAuthButtons();
                     this.hideLoginModal();
                     this.showAlert(`Welcome ${displayName}! You can now buy tickets.`, 'success');
                     this.updateUserStats();
                     document.getElementById('onlineCount').textContent = LottoGame.getOnlineCount();
+                    
+                    // Trigger sync
+                    localStorage.setItem(GameState.SYNC_KEY, Date.now().toString());
                 } else {
                     this.showAlert(result.message, 'error');
                 }
@@ -1695,8 +1776,10 @@
                     this.hideLoginModal();
                     this.showAlert(`Welcome back ${this.currentUser.displayName}!`, 'success');
                     this.updateUserStats();
-                    this.updateTierInfo();
                     this.generateTicketBoard();
+                    
+                    // Trigger sync
+                    localStorage.setItem(GameState.SYNC_KEY, Date.now().toString());
                 } else {
                     this.showAlert(result.message, 'error');
                 }
@@ -1706,11 +1789,6 @@
                 const modal = document.getElementById('loginModal');
                 if (modal) {
                     modal.style.display = 'flex';
-                    document.getElementById('username').value = '';
-                    document.getElementById('password').value = '';
-                    document.getElementById('displayName').value = '';
-                    document.getElementById('loginUsername').value = '';
-                    document.getElementById('loginPassword').value = '';
                 }
             },
             
@@ -1720,8 +1798,11 @@
             },
             
             showAlert(message, type = 'info') {
-                // Remove existing alerts
-                document.querySelectorAll('.tws-alert').forEach(el => el.remove());
+                const alerts = document.querySelectorAll('.tws-alert');
+                alerts.forEach(alert => {
+                    alert.style.animation = 'slideIn 0.3s ease reverse';
+                    setTimeout(() => alert.remove(), 300);
+                });
                 
                 const alert = document.createElement('div');
                 alert.className = 'tws-alert';
@@ -1740,19 +1821,13 @@
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    max-width: 400px;
-                    word-break: break-word;
                 `;
                 
                 const icon = type === 'error' ? 'fa-exclamation-circle' : 
                             type === 'warning' ? 'fa-exclamation-triangle' : 
                             'fa-check-circle';
                 
-                alert.innerHTML = `
-                    <i class="fas ${icon}"></i>
-                    <span>${message}</span>
-                `;
-                
+                alert.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
                 document.body.appendChild(alert);
                 
                 setTimeout(() => {
@@ -1769,7 +1844,9 @@
                 this.selectedTicket = null;
                 this.updateBuyButton();
                 this.generateTicketBoard();
-                this.updateTierInfo();
+                
+                // Trigger sync
+                localStorage.setItem(GameState.SYNC_KEY, Date.now().toString());
             }
         };
         
@@ -1783,17 +1860,13 @@
             if (formType === 'register') {
                 registerForm.style.display = 'block';
                 loginForm.style.display = 'none';
-                registerBtn.classList.add('btn-gold');
-                registerBtn.classList.remove('btn-primary');
-                loginBtn.classList.add('btn-primary');
-                loginBtn.classList.remove('btn-gold');
+                registerBtn.className = 'btn btn-gold';
+                loginBtn.className = 'btn btn-primary';
             } else {
                 registerForm.style.display = 'none';
                 loginForm.style.display = 'block';
-                loginBtn.classList.add('btn-gold');
-                loginBtn.classList.remove('btn-primary');
-                registerBtn.classList.add('btn-primary');
-                registerBtn.classList.remove('btn-gold');
+                loginBtn.className = 'btn btn-gold';
+                registerBtn.className = 'btn btn-primary';
             }
         }
         
