@@ -1,2 +1,1 @@
-# tws-bets-platform
-Gambling challenge website for That War Server
+# 14-Day-Audience-System
